@@ -2,7 +2,6 @@ package window
 
 import (
 	g "github.com/AllenDang/giu"
-	"github.com/Kor-SVS/cocoa/src/log"
 	"github.com/sqweek/dialog"
 )
 
@@ -10,7 +9,7 @@ type MainWindowState struct {
 	LeftSidePanelPos float32
 }
 
-func createMainWindowState() (state MainWindowState) {
+func newMainWindowState() (state MainWindowState) {
 	state = MainWindowState{
 		LeftSidePanelPos: 400,
 	}
@@ -18,7 +17,7 @@ func createMainWindowState() (state MainWindowState) {
 }
 
 var (
-	State MainWindowState = createMainWindowState()
+	State MainWindowState = newMainWindowState()
 )
 
 func MainWindowGUILoop() {
@@ -52,9 +51,9 @@ func MainWindowGUILoop() {
 
 func openFile() {
 	go func() {
-		log.GLogger.Trace("[Event Callback] 파일 열기")
+		logger.Trace("[Event Callback] 파일 열기")
 
 		filename, err := dialog.File().Filter("WAV Files", "wav").Load()
-		log.GLogger.Errorf("filename=%v, err=%v", filename, err)
+		logger.Errorf("filename=%v, err=%v", filename, err)
 	}()
 }
