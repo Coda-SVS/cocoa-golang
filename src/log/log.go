@@ -6,11 +6,12 @@ import (
 	"os"
 	"path"
 
+	"github.com/Kor-SVS/cocoa/src/util"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func init() {
-	basePath := getExecutablePath()
+	basePath := util.GetExecutablePath()
 
 	infoFileWriter := &lumberjack.Logger{
 		Filename:   path.Join(basePath, "log", "syntool.log"),

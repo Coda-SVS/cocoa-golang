@@ -1,5 +1,7 @@
 package log
 
+import "github.com/Kor-SVS/cocoa/src/util"
+
 type logBoxInternal struct {
 	joinedPrefix string
 }
@@ -23,5 +25,5 @@ func (lm *LogBox) Message() string {
 }
 
 func (lm *LogBox) BuildMessage() string {
-	return stringConcat(lm.logBoxInternal.joinedPrefix, " ", lm.message)
+	return util.StringConcat(lm.logBoxInternal.joinedPrefix, " ", lm.message)
 }
