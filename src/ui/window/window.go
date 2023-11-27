@@ -1,8 +1,13 @@
 package window
 
-import "github.com/Kor-SVS/cocoa/src/log"
+import (
+	"github.com/Kor-SVS/cocoa/src/log"
+	"github.com/sasha-s/go-deadlock"
+)
 
 var logger *log.Logger
+
+var windowMutex *deadlock.RWMutex = new(deadlock.RWMutex)
 
 func init() {
 	logOption := log.NewLoggerOption()
