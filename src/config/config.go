@@ -1,48 +1,57 @@
 package config
 
 import (
-	"errors"
-	"fmt"
 	"os"
+	"path"
 
+	"github.com/Kor-SVS/cocoa/src/log"
+	"github.com/Kor-SVS/cocoa/src/util"
 	"github.com/spf13/viper"
 )
 
-var Config = viper.GetViper()
+type Config struct {
+	v           *viper.Viper
+	currentPath string
+}
+
+var (
+	RootConfig Config
+	logger     *log.Logger
+)
 
 func init() {
-	isCreated := false
-	if _, err := os.Stat("config.yaml"); errors.Is(err, os.ErrNotExist) {
-		os.Create("config.yaml")
-		isCreated = true
+	RootConfig = Config{v: viper.GetViper()}
+
+	logOption := log.NewLoggerOption()
+	logOption.Prefix = "[config]"
+	logWriter := log.NewLogWriter(nil, nil, nil, nil)
+	logger = log.NewLogger(logOption, logWriter)
+
+	logger.Trace("Config init...")
+
+	currentPath := util.GetExecutablePath()
+	configPath := path.Join(currentPath, "config.yaml")
+
+	if !util.FileExists(configPath) {
+		os.Create(configPath)
 	}
 
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
+	RootConfig.v.SetConfigName("config")
+	RootConfig.v.SetConfigType("yaml")
+	RootConfig.v.AddConfigPath(currentPath)
 
-	setupConfig()
-
-	if isCreated {
-		WriteConfig()
-	}
+	ReadConfig()
 }
 
 func ReadConfig() {
-	if err := viper.ReadInConfig(); err != nil {
-		panic(fmt.Errorf("fatal error config file: %w", err))
+	if err := RootConfig.v.ReadInConfig(); err != nil {
+		logger.Warningf("설정 파일 로드 실패 (err=%v)", err)
 	}
 }
 
-func setupConfig() {
-	viper.SetDefault("ContentDir", "content")
-	viper.SetDefault("LayoutDir", "layouts")
-	viper.SetDefault("Taxonomies", map[string]string{"tag": "tags", "category": "categories"})
-}
-
 func WriteConfig() {
-	err := viper.WriteConfig()
+	err := RootConfig.v.WriteConfig()
 	if err != nil {
-		panic(err)
+		logger.Errorf("설정 파일 저장 실패 (err=%v)", err)
 	}
 }
