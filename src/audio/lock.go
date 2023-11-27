@@ -1,5 +1,7 @@
 package audio
 
-import "sync"
+import "github.com/sasha-s/go-deadlock"
 
-var streamerMutex sync.RWMutex
+var (
+	audioMutex *deadlock.Mutex = new(deadlock.Mutex)
+)
