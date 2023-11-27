@@ -6,10 +6,15 @@ import (
 	"github.com/gen2brain/malgo"
 )
 
-var malgoContext *malgo.AllocatedContext
+var (
+	malgoContext *malgo.AllocatedContext
+)
 
-func initContext(backends []malgo.Backend, config malgo.ContextConfig) {
-	ctx, err := malgo.InitContext(backends, config, func(message string) {
+func initContext() {
+	contextConfig := malgo.ContextConfig{}
+	contextConfig.ThreadPriority = malgo.ThreadPriority(audioContextConfig.GetInt("ThreadPriority"))
+
+	ctx, err := malgo.InitContext(nil, contextConfig, func(message string) {
 		logger.Tracef("[Engine] %v", strings.TrimRight(message, "\n"))
 	})
 	if err != nil {

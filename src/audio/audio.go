@@ -2,10 +2,11 @@ package audio
 
 import (
 	"github.com/Kor-SVS/cocoa/src/log"
-	"github.com/gen2brain/malgo"
 )
 
-var logger *log.Logger
+var (
+	logger *log.Logger
+)
 
 func init() {
 	logOption := log.NewLoggerOption()
@@ -15,10 +16,12 @@ func init() {
 
 	logger.Trace("Audio init...")
 
+	configInit()
+
 	audioMutex.Lock()
 	defer audioMutex.Unlock()
 
-	initContext(nil, malgo.ContextConfig{})
+	initContext()
 }
 
 // 할당된 자원 해제

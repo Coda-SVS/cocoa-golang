@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"github.com/Kor-SVS/cocoa/src/util"
 	"github.com/gen2brain/malgo"
 	"github.com/gopxl/beep"
 )
@@ -9,6 +10,10 @@ type AudioStream struct {
 	beep.StreamSeekCloser
 	Format *beep.Format
 }
+
+var (
+	AudioStreamBroker *util.Broker[EnumAudioStreamState] = util.NewBroker[EnumAudioStreamState]()
+)
 
 var (
 	audioStream             *AudioStream                // 오디오 데이터 스트림
@@ -38,13 +43,30 @@ func Open(fpath string) {
 	audioStream.Format = format
 	audioBuffer = nil
 
-	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
+	deviceConfig := newDeviceConfig()
+
 	deviceConfig.Playback.Format = malgo.FormatF32
 	deviceConfig.Playback.Channels = 2
 	deviceConfig.SampleRate = uint32(audioStream.Format.SampleRate)
-	deviceConfig.Alsa.NoMMap = 1
 
 	initDevice(deviceConfig)
+
+	AudioStreamBroker.Publish(EnumAudioStreamOpen)
+}
+
+func GetAllSampleData() [][2]float64 {
+	audioMutex.Lock()
+	defer audioMutex.Unlock()
+
+	pos := audioStream.Position()
+	audioStream.Seek(0)
+
+	buf := make([][2]float64, audioStream.Len())
+	audioStream.Stream(buf)
+
+	audioStream.Seek(pos)
+
+	return buf
 }
 
 func readAudioStream(outBuffer []byte, frameCount int) int {
@@ -66,7 +88,7 @@ func readAudioStream(outBuffer []byte, frameCount int) int {
 		callback(audioBuffer)
 	}
 
-	floatSampleToByteArray(audioBuffer, outBuffer)
+	util.FloatSampleToByteArray(audioBuffer, outBuffer)
 
 	if readN == sampleLen && ok { // 스트림이 끝났을 경우
 		return readN
@@ -74,11 +96,19 @@ func readAudioStream(outBuffer []byte, frameCount int) int {
 	return readN
 }
 
+func isAudioLoaded() bool {
+	return audioStream != nil && audioDevice != nil
+}
+
 func Close() {
 	audioMutex.Lock()
-	defer audioMutex.Unlock()
+	defer func() {
+		close()
 
-	close()
+		AudioStreamBroker.Publish(EnumAudioStreamClosed)
+	}()
+
+	defer audioMutex.Unlock()
 }
 
 func close() {

@@ -8,6 +8,7 @@ require (
 	github.com/gen2brain/malgo v0.11.10
 	github.com/gopxl/beep v1.2.0
 	github.com/sasha-s/go-deadlock v0.3.1
+	github.com/spf13/cast v1.5.1
 	github.com/spf13/viper v1.17.0
 	github.com/sqweek/dialog v0.0.0-20220809060634-e981b270ebbf
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -39,7 +40,6 @@ require (
 	github.com/sahilm/fuzzy v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
-	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
