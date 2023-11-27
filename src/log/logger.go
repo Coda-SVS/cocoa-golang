@@ -27,8 +27,11 @@ func (l *Logger) trace(box *LogBox) {
 		l.messagePrefixBuild(box)
 
 		if l.logWriter.loggerTrace != nil {
+			logMutex.Lock()
 			l.logWriter.loggerTrace.Println(box.BuildMessage())
+			logMutex.Unlock()
 		}
+
 		if l.parent != nil && l.option.PassToParent {
 			l.parent.trace(box)
 		}
@@ -40,8 +43,11 @@ func (l *Logger) info(box *LogBox) {
 		l.messagePrefixBuild(box)
 
 		if l.logWriter.loggerInfo != nil {
+			logMutex.Lock()
 			l.logWriter.loggerInfo.Println(box.BuildMessage())
+			logMutex.Unlock()
 		}
+
 		if l.parent != nil && l.option.PassToParent {
 			l.parent.info(box)
 		}
@@ -53,8 +59,11 @@ func (l *Logger) warning(box *LogBox) {
 		l.messagePrefixBuild(box)
 
 		if l.logWriter.loggerWarning != nil {
+			logMutex.Lock()
 			l.logWriter.loggerWarning.Println(box.BuildMessage())
+			logMutex.Unlock()
 		}
+
 		if l.parent != nil && l.option.PassToParent {
 			l.parent.warning(box)
 		}
@@ -66,8 +75,11 @@ func (l *Logger) error(box *LogBox) {
 		l.messagePrefixBuild(box)
 
 		if l.logWriter.loggerError != nil {
+			logMutex.Lock()
 			l.logWriter.loggerError.Println(box.BuildMessage())
+			logMutex.Unlock()
 		}
+
 		if l.parent != nil && l.option.PassToParent {
 			l.parent.error(box)
 		}
