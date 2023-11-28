@@ -31,5 +31,5 @@ func Dispose() {
 
 	defer disposeDevice()
 	defer disposeContext()
-	defer close()
+	defer disposeStream()
 }

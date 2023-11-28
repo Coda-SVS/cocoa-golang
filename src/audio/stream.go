@@ -31,13 +31,15 @@ func Open(fpath string) {
 	decoder, format, err := GetDecoder(fpath)
 	if err != nil {
 		logger.Errorf("오디오 파일을 열지 못했습니다. err=%v", err)
-		decoder.Close()
+		return
 	}
 
 	if decodeErr := decoder.Err(); decodeErr != nil {
 		logger.Errorf("디코드 오류 발생 decodeErr=%v", decodeErr)
-		decoder.Close()
+		return
 	}
+
+	disposeStream()
 
 	audioStream = &AudioStream{}
 	audioStream.StreamSeekCloser = decoder
@@ -103,20 +105,17 @@ func isAudioLoaded() bool {
 
 func Close() {
 	audioMutex.Lock()
-	defer func() {
-		close()
-
-		AudioStreamBroker.Publish(EnumAudioStreamClosed)
-	}()
-
 	defer audioMutex.Unlock()
+
+	disposeStream()
 }
 
-func close() {
+func disposeStream() {
 	if audioStream != nil {
 		disposeDevice()
 		audioStream.Close()
 		audioStream = nil
 		audioBuffer = nil
+		AudioStreamBroker.Publish(EnumAudioStreamClosed)
 	}
 }

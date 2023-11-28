@@ -19,7 +19,10 @@ func initDevice(config malgo.DeviceConfig) {
 	device, err := malgo.InitDevice(malgoContext.Context, config, deviceCallbacks)
 	if err != nil {
 		logger.Error("Device 초기화 실패 err=%w", err)
+		return
 	}
+
+	disposeDevice()
 
 	audioDevice = device
 }
