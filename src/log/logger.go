@@ -87,7 +87,7 @@ func (l *Logger) error(box *LogBox) {
 }
 
 func (l *Logger) messagePrefixBuild(box *LogBox) {
-	// box.logBoxInternal.joinedPrefix = stringConcat(l.option.Prefix, box.logBoxInternal.joinedPrefix)
+	// box.logBoxInternal.joinedPrefix = stringConcat("", l.option.Prefix, box.logBoxInternal.joinedPrefix)
 
 	if box.logBoxInternal.joinedPrefix == "" {
 		box.logBoxInternal.joinedPrefix = l.option.Prefix

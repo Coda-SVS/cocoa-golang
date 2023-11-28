@@ -32,10 +32,10 @@ func init() {
 	infoWriter := io.MultiWriter(infoFileWriter, os.Stdout)
 	errorWriter := io.MultiWriter(infoFileWriter, errorFileWriter, os.Stderr)
 
-	loggerTrace := log.New(infoWriter, "[TRACE] ", log.Ldate|log.Ltime|log.Lshortfile)
-	loggerInfo := log.New(infoWriter, "[INFO ] ", log.Ldate|log.Ltime|log.Lshortfile)
-	loggerWarning := log.New(errorWriter, "[WARN ] ", log.Ldate|log.Ltime|log.Lshortfile)
-	loggerError := log.New(errorWriter, "[ERROR] ", log.Ldate|log.Ltime|log.Lshortfile)
+	loggerTrace := log.New(infoWriter, "[TRACE] ", log.Ldate|log.Ltime)
+	loggerInfo := log.New(infoWriter, "[INFO ] ", log.Ldate|log.Ltime)
+	loggerWarning := log.New(errorWriter, "[WARN ] ", log.Ldate|log.Ltime)
+	loggerError := log.New(errorWriter, "[ERROR] ", log.Ldate|log.Ltime)
 
 	option := NewLoggerOption()
 	option.Prefix = "[root]"
