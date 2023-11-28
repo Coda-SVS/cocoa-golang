@@ -72,8 +72,6 @@ func openFile() {
 		logger.Infof("파일 경로 지정됨 (filename=%v)", filename)
 
 		audio.Open(filename)
-
-		audio.Play()
 	}()
 }
 
