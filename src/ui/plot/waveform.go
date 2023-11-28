@@ -3,7 +3,7 @@ package plot
 import (
 	g "github.com/AllenDang/giu"
 	"github.com/Kor-SVS/cocoa/src/audio"
-	"github.com/Kor-SVS/cocoa/src/util"
+	"github.com/Kor-SVS/cocoa/src/audio/dsp"
 	"github.com/sasha-s/go-deadlock"
 )
 
@@ -39,7 +39,7 @@ func onStreamChanged() {
 			switch msg {
 			case audio.EnumAudioStreamOpen:
 				format := audio.StreamFormat()
-				SampleArray = util.StereoToMono(audio.GetAllSampleData())
+				SampleArray = dsp.StereoToMono(audio.GetAllSampleData())
 				SamplePosArray = make([]float64, len(SampleArray))
 				for i := 0; i < len(SampleArray); i++ {
 					SamplePosArray[i] = float64(i) / float64(format.SampleRate)

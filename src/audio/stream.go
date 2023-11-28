@@ -1,6 +1,7 @@
 package audio
 
 import (
+	"github.com/Kor-SVS/cocoa/src/audio/dsp"
 	"github.com/Kor-SVS/cocoa/src/util"
 	"github.com/gen2brain/malgo"
 	"github.com/gopxl/beep"
@@ -88,7 +89,7 @@ func readAudioStream(outBuffer []byte, frameCount int) int {
 		callback(audioBuffer)
 	}
 
-	util.FloatSampleToByteArray(audioBuffer, outBuffer)
+	dsp.FloatSampleToByteArray(audioBuffer, outBuffer)
 
 	if readN == sampleLen && ok { // 스트림이 끝났을 경우
 		return readN
