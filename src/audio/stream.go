@@ -73,9 +73,6 @@ func GetAllSampleData() [][2]float64 {
 }
 
 func readAudioStream(outBuffer []byte, frameCount int) int {
-	audioMutex.Lock()
-	defer audioMutex.Unlock()
-
 	if audioStream == nil {
 		return 0
 	}
