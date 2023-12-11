@@ -1,64 +1,76 @@
 package window
 
 import (
-	g "github.com/AllenDang/giu"
+	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/audio"
-	"github.com/Kor-SVS/cocoa/src/ui/plot"
+	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
 	"github.com/sqweek/dialog"
 )
 
+type MainWindow struct {
+	State MainWindowState
+}
+
 type MainWindowState struct {
+	IsOpen           bool
 	LeftSidePanelPos float32
 }
 
-func newMainWindowState() (state MainWindowState) {
-	state = MainWindowState{
+func NewMainWindow() (window *MainWindow) {
+	window = &MainWindow{}
+	window.State = MainWindowState{
 		LeftSidePanelPos: 400,
 	}
-	return state
+	return window
 }
 
-var (
-	State MainWindowState = newMainWindowState()
-)
+func (mw *MainWindow) View() {
+	backend := imguiw.Context.Backend()
 
-func MainWindowGUILoop() {
-	windowMutex.RLock()
-	defer windowMutex.RUnlock()
+	pos := imgui.MainViewport().Pos()
+	sizeX, sizeY := backend.DisplaySize()
 
-	g.SingleWindowWithMenuBar().Layout(
-		// 메뉴바
-		g.MenuBar().Layout(
-			g.Menu("파일").Layout(
-				g.MenuItem("열기").OnClick(openFile),
-				// g.MenuItem("Save"),
-				// // You could add any kind of widget here, not just menu item.
-				// g.Menu("Save as ...").Layout(
-				// 	g.MenuItem("Excel file"),
-				// 	g.MenuItem("CSV file"),
-				// 	g.Button("Button inside menu"),
-				// ),
-			),
-			g.Menu("오디오").Layout(
-				g.MenuItem("재생").OnClick(playAudio),
-				g.MenuItem("일시중지").OnClick(pauseAudio),
-				g.MenuItem("중지").OnClick(stopAudio),
-				g.MenuItem("처음 위치로").OnClick(goStartPosAudio),
-			),
-		),
-
-		g.SplitLayout(g.DirectionVertical, &State.LeftSidePanelPos,
-			// 좌측 패널
-			g.Layout{
-				g.Label("좌측 패널"),
-			},
-			// 우측 패널
-			g.Layout{
-				g.Label("우측 패널"),
-				plot.WaveformGUILoop(),
-			},
-		),
-	)
+	imgui.SetNextWindowPos(pos)
+	imgui.SetNextWindowSize(imgui.Vec2{X: float32(sizeX), Y: float32(sizeY)})
+	imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, 0)
+	if imgui.BeginV("MainWindow", &mw.State.IsOpen,
+		imgui.WindowFlagsNoDocking|
+			imgui.WindowFlagsNoTitleBar|
+			imgui.WindowFlagsNoCollapse|
+			imgui.WindowFlagsNoScrollbar|
+			imgui.WindowFlagsNoMove|
+			imgui.WindowFlagsNoResize|
+			imgui.WindowFlagsMenuBar) {
+		if imgui.BeginMenuBar() {
+			if imgui.BeginMenu(imguiw.T("File")) {
+				if imgui.MenuItemBool(imguiw.T("OpenFile")) {
+					openFile()
+				}
+				imgui.EndMenu()
+			}
+			if imgui.BeginMenu(imguiw.T("Audio")) {
+				if imgui.MenuItemBool(imguiw.T("AudioPlay")) {
+					playAudio()
+				}
+				if imgui.MenuItemBool(imguiw.T("AudioPause")) {
+					pauseAudio()
+				}
+				if imgui.MenuItemBool(imguiw.T("AudioStop")) {
+					stopAudio()
+				}
+				if imgui.MenuItemBool(imguiw.RS("시작위치로 이동")) {
+					goStartPosAudio()
+				}
+				imgui.EndMenu()
+			}
+			imgui.EndMenuBar()
+		}
+		imgui.Text(imguiw.RS("Hello!"))
+		imgui.Text(imguiw.RS("안녕!"))
+		imgui.Text(imguiw.RS("👍⭐"))
+	}
+	imgui.End()
+	imgui.PopStyleVar()
 }
 
 func openFile() {

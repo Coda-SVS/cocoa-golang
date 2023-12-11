@@ -1,30 +1,36 @@
 package main
 
 import (
-	g "github.com/AllenDang/giu"
-	"github.com/AllenDang/imgui-go"
+	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/audio"
 	"github.com/Kor-SVS/cocoa/src/config"
-	_ "github.com/Kor-SVS/cocoa/src/log"
+	"github.com/Kor-SVS/cocoa/src/log"
+	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
 	"github.com/Kor-SVS/cocoa/src/ui/window"
+	"github.com/Kor-SVS/cocoa/src/util"
 )
 
 var (
-	isExit bool = false
+	mainWindow imguiw.Widget
 )
 
 func main() {
 	defer audio.Dispose()
 	defer config.WriteConfig()
 
-	wnd := g.NewMasterWindow("COCOA", 1400, 800, 0)
+	imguiw.InitImgui()
+
+	backend := imguiw.Context.Backend()
+
+	backend.CreateWindow("COCOA", 1400, 800)
 	imgui.StyleColorsDark()
 
-	wnd.SetCloseCallback(callbackClose)
-	wnd.Run(window.MainWindowGUILoop)
+	mainWindow = window.NewMainWindow()
+
+	// wnd.SetCloseCallback(callbackClose)
+	backend.Run(log.PanicLogHandler(log.RootLogger, util.PanicToErrorW(mainWindowGUILoop)))
 }
 
-func callbackClose() bool {
-	isExit = true
-	return isExit
+func mainWindowGUILoop() {
+	mainWindow.View()
 }
