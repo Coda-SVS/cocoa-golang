@@ -9,18 +9,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Config struct {
-	v           *viper.Viper
-	currentPath string
-}
-
 var (
-	RootConfig Config
+	RootConfig *Config
 	logger     *log.Logger
 )
 
 func init() {
-	RootConfig = Config{v: viper.GetViper()}
+	RootConfig = NewConfig(viper.GetViper())
 
 	logOption := log.NewLoggerOption()
 	logOption.Prefix = "[config]"

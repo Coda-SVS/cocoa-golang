@@ -5,7 +5,17 @@ import (
 	"time"
 
 	"github.com/spf13/cast"
+	"github.com/spf13/viper"
 )
+
+type Config struct {
+	v           *viper.Viper
+	currentPath string
+}
+
+func NewConfig(v *viper.Viper) *Config {
+	return &Config{v: v}
+}
 
 func (c *Config) Set(key string, value any) {
 	if c.currentPath == "" {
