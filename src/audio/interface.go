@@ -91,7 +91,7 @@ func SetPosition(t time.Duration) {
 		}
 	}
 
-	err := audioStream.Seek(int(t.Seconds() * float64(audioStream.Format.SampleRate)))
+	err := audioStream.Seek(min(max(int(t.Seconds()*float64(audioStream.Format.SampleRate)), 0), audioStream.Len()))
 	if err != nil {
 		logger.Errorf("오디오 위치 이동 실패 (err=%v)", err)
 		return
@@ -114,8 +114,7 @@ func Position() time.Duration {
 	}
 
 	rawPos := float64(audioStream.Position()) / float64(audioStream.Format.SampleRate)
-	pos := time.Duration(rawPos * float64(time.Second))
-	return pos
+	return time.Duration(rawPos * float64(time.Second))
 }
 
 func Duration() time.Duration {
@@ -127,8 +126,7 @@ func Duration() time.Duration {
 	}
 
 	rawDur := float64(audioStream.Len()) / float64(audioStream.Format.SampleRate)
-	dur := time.Duration(rawDur * float64(time.Second))
-	return dur
+	return time.Duration(rawDur * float64(time.Second))
 }
 
 func StreamFormat() *beep.Format {
