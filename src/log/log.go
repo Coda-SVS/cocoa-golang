@@ -1,11 +1,13 @@
 package log
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"path"
 
+	"github.com/Kor-SVS/cocoa/src/core"
 	"github.com/Kor-SVS/cocoa/src/util"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -51,4 +53,22 @@ var (
 
 func NewLogger(option LoggerOption, logWriter LogWriter) *Logger {
 	return newLogger(RootLogger, option, logWriter)
+}
+
+func PanicLogHandler(logger *Logger, f func() *core.ErrorW) func() {
+	return func() {
+		err := f()
+
+		if err != nil {
+			box := NewLogBox()
+			box.message = fmt.Sprintf("<PanicLogHandler> 처리되지 않은 오류 발생 (Critical=%v, err=%v)", err.Critical, err.Error())
+			box.AddCallStack(1)
+
+			logger.Errorb(box)
+
+			if err.Critical {
+				panic(err)
+			}
+		}
+	}
 }
