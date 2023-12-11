@@ -28,7 +28,7 @@ func NewLogBox() *LogBox {
 }
 
 func (lm *LogBox) AddCallStack(skip int) bool {
-	_, fileName, lineNum, ok := runtime.Caller(skip)
+	_, fileName, lineNum, ok := runtime.Caller(skip + 1)
 	fileName = strings.Split(fileName, "src")[1][1:]
 
 	if !ok {
