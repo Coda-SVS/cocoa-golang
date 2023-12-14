@@ -23,7 +23,7 @@ func main() {
 
 	mainWindow = window.NewMainWindow()
 
-	imguiw.Run(log.PanicLogHandler(log.RootLogger, util.PanicToErrorW(mainWindowGUILoop)))
+	imguiw.Run(log.PanicLogHandler(log.RootLogger(), util.PanicToErrorW(mainWindowGUILoop)))
 }
 
 func mainWindowGUILoop() {

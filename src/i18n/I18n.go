@@ -25,8 +25,7 @@ type LanguageData struct {
 func init() {
 	logOption := log.NewLoggerOption()
 	logOption.Prefix = "[i18n]"
-	logWriter := log.NewLogWriter(nil, nil, nil, nil)
-	logger = log.NewLogger(logOption, logWriter)
+	logger = log.RootLogger().NewSimpleLogger(logOption)
 
 	logger.Trace("I18n init...")
 

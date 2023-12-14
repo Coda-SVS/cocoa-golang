@@ -22,6 +22,15 @@ func (l *Logger) Parent() *Logger {
 	return l.parent
 }
 
+func (l *Logger) NewLogger(option LoggerOption, logWriter LogWriter) *Logger {
+	return newLogger(l, option, logWriter)
+}
+
+func (l *Logger) NewSimpleLogger(option LoggerOption) *Logger {
+	logWriter := NewLogWriter(nil, nil, nil, nil)
+	return newLogger(l, option, logWriter)
+}
+
 func (l *Logger) trace(box *LogBox) {
 	if l.option.LogLevel <= TRACE {
 		l.messagePrefixBuild(box)

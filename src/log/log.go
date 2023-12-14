@@ -44,15 +44,15 @@ func init() {
 
 	logWriter := NewLogWriter(loggerTrace, loggerInfo, loggerWarning, loggerError)
 
-	RootLogger = newLogger(nil, option, logWriter)
+	rootLogger = newLogger(nil, option, logWriter)
 }
 
 var (
-	RootLogger *Logger
+	rootLogger *Logger
 )
 
-func NewLogger(option LoggerOption, logWriter LogWriter) *Logger {
-	return newLogger(RootLogger, option, logWriter)
+func RootLogger() *Logger {
+	return rootLogger
 }
 
 func PanicLogHandler(logger *Logger, f func() *core.ErrorW) func() {
