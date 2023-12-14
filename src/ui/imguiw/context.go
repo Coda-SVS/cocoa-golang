@@ -1,6 +1,9 @@
 package imguiw
 
-import imgui "github.com/AllenDang/cimgui-go"
+import (
+	imgui "github.com/AllenDang/cimgui-go"
+	"github.com/sasha-s/go-deadlock"
+)
 
 var Context *ImguiWContext
 
@@ -9,6 +12,7 @@ type ImguiWContext struct {
 	imBackend imgui.Backend[imgui.GLFWWindowFlags]
 	FontAtlas *FontAtlas
 	context   *imgui.Context
+	Mutex     *deadlock.RWMutex
 	idCounter int
 }
 

@@ -18,17 +18,12 @@ func main() {
 	defer audio.Dispose()
 	defer config.WriteConfig()
 
-	imguiw.InitImgui()
-
-	backend := imguiw.Context.Backend()
-
-	backend.CreateWindow("COCOA", 1400, 800)
+	imguiw.InitImgui("COCOA", 1400, 800)
 	imgui.StyleColorsDark()
 
 	mainWindow = window.NewMainWindow()
 
-	// wnd.SetCloseCallback(callbackClose)
-	backend.Run(log.PanicLogHandler(log.RootLogger, util.PanicToErrorW(mainWindowGUILoop)))
+	imguiw.Run(log.PanicLogHandler(log.RootLogger, util.PanicToErrorW(mainWindowGUILoop)))
 }
 
 func mainWindowGUILoop() {
