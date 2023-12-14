@@ -8,6 +8,7 @@ import (
 )
 
 type MainWindow struct {
+	title string
 	State MainWindowState
 }
 
@@ -18,10 +19,32 @@ type MainWindowState struct {
 
 func NewMainWindow() (window *MainWindow) {
 	window = &MainWindow{}
+	window.title = "Main Window"
 	window.State = MainWindowState{
 		LeftSidePanelPos: 400,
 	}
 	return window
+}
+
+func (mw *MainWindow) Title() string {
+	imguiw.Context.Mutex.RLock()
+	defer imguiw.Context.Mutex.RUnlock()
+
+	return mw.title
+}
+
+func (mw *MainWindow) IsOpen() bool {
+	imguiw.Context.Mutex.RLock()
+	defer imguiw.Context.Mutex.RUnlock()
+
+	return mw.State.IsOpen
+}
+
+func (mw *MainWindow) SetIsOpen(value bool) {
+	imguiw.Context.Mutex.Lock()
+	defer imguiw.Context.Mutex.Unlock()
+
+	mw.State.IsOpen = value
 }
 
 func (mw *MainWindow) View() {
@@ -33,7 +56,7 @@ func (mw *MainWindow) View() {
 	imgui.SetNextWindowPos(pos)
 	imgui.SetNextWindowSize(imgui.Vec2{X: float32(sizeX), Y: float32(sizeY)})
 	imgui.PushStyleVarFloat(imgui.StyleVarWindowRounding, 0)
-	if imgui.BeginV("MainWindow", &mw.State.IsOpen,
+	if imgui.BeginV(imguiw.T(mw.title), &mw.State.IsOpen,
 		imgui.WindowFlagsNoDocking|
 			imgui.WindowFlagsNoTitleBar|
 			imgui.WindowFlagsNoCollapse|
@@ -71,6 +94,10 @@ func (mw *MainWindow) View() {
 	}
 	imgui.End()
 	imgui.PopStyleVar()
+}
+
+func (mw *MainWindow) Close() {
+	imguiw.Context.Backend().SetShouldClose(true)
 }
 
 func openFile() {
