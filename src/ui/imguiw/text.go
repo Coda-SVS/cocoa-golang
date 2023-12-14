@@ -6,7 +6,11 @@ import (
 )
 
 func T(translateKey string, options ...goeasyi18n.Options) string {
-	return Context.FontAtlas.RegisterString(i18n.T(translateKey, options...))
+	tString := i18n.T(translateKey, options...)
+	if tString == "" {
+		tString = translateKey
+	}
+	return Context.FontAtlas.RegisterString(tString)
 }
 
 func RS(text string) string {
