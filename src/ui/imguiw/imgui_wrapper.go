@@ -19,6 +19,7 @@ func init() {
 func InitImgui(title string, width, height int) {
 	Context = &ImguiWContext{}
 	Context.context = imgui.CreateContext()
+	imgui.SetCurrentContext(Context.context)
 	Context.imBackend = imgui.CreateBackend(imgui.NewGLFWBackend())
 	Context.imDPI = NewImguiDPI(nil, Context.context, nil)
 	Context.FontAtlas = newFontAtlas()
@@ -26,7 +27,7 @@ func InitImgui(title string, width, height int) {
 
 	io := imgui.CurrentIO()
 
-	io.SetConfigFlags(imgui.BackendFlagsRendererHasVtxOffset)
+	io.SetConfigFlags(imgui.ConfigFlagsDpiEnableScaleViewports)
 	io.SetBackendFlags(imgui.BackendFlagsRendererHasVtxOffset)
 
 	io.SetIniFilename("")
@@ -77,11 +78,13 @@ func beforeRender() {
 
 func afterCreateContext() {
 	imgui.PlotCreateContext()
+	imgui.ImNodesCreateContext()
 
 	logger.Trace("(Call) afterCreateContext")
 }
 
 func beforeDestroyContext() {
+	imgui.ImNodesDestroyContext()
 	imgui.PlotDestroyContext()
 
 	logger.Trace("(Call) beforeDestroyContext")
