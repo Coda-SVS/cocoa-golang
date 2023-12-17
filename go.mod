@@ -45,6 +45,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/AllenDang/giu v0.7.1-0.20231114073318-27baeee8d46f => ../giu
+// replace github.com/AllenDang/giu v0.7.1-0.20231114073318-27baeee8d46f => ../giu
 
 replace github.com/AllenDang/cimgui-go v0.0.0-20231009021832-f9856eb4a9a7 => ../cimgui_go
