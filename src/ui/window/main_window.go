@@ -4,6 +4,7 @@ import (
 	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/audio"
 	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
+	"github.com/Kor-SVS/cocoa/src/ui/widget"
 	"github.com/sqweek/dialog"
 )
 
@@ -94,10 +95,6 @@ func (mw *MainWindow) View() {
 	}
 	imgui.End()
 	imgui.PopStyleVar()
-}
-
-func (mw *MainWindow) Close() {
-	imguiw.Context.Backend().SetShouldClose(true)
 }
 
 func openFile() {
