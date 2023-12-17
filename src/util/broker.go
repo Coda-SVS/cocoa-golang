@@ -20,33 +20,35 @@ func NewBroker[T any]() *Broker[T] {
 }
 
 func (b *Broker[T]) Start() {
-	if b.isStarted {
-		return
-	}
-	b.isStarted = true
-
-	subs := map[chan T]struct{}{}
-	for {
-		select {
-		case <-b.stopCh:
-			for msgCh := range subs {
-				close(msgCh)
-			}
+	go func() {
+		if b.isStarted {
 			return
-		case msgCh := <-b.subCh:
-			subs[msgCh] = struct{}{}
-		case msgCh := <-b.unsubCh:
-			delete(subs, msgCh)
-		case msg := <-b.publishCh:
-			for msgCh := range subs {
-				// msgCh is buffered, use non-blocking send to protect the broker:
-				select {
-				case msgCh <- msg:
-				default:
+		}
+		b.isStarted = true
+
+		subs := map[chan T]struct{}{}
+		for {
+			select {
+			case <-b.stopCh:
+				for msgCh := range subs {
+					close(msgCh)
+				}
+				return
+			case msgCh := <-b.subCh:
+				subs[msgCh] = struct{}{}
+			case msgCh := <-b.unsubCh:
+				delete(subs, msgCh)
+			case msg := <-b.publishCh:
+				for msgCh := range subs {
+					// msgCh is buffered, use non-blocking send to protect the broker:
+					select {
+					case msgCh <- msg:
+					default:
+					}
 				}
 			}
 		}
-	}
+	}()
 }
 
 func (b *Broker[T]) Stop() {
@@ -66,8 +68,4 @@ func (b *Broker[T]) Unsubscribe(msgCh chan T) {
 
 func (b *Broker[T]) Publish(msg T) {
 	b.publishCh <- msg
-
-	if !b.isStarted {
-		go b.Start()
-	}
 }

@@ -13,7 +13,7 @@ type AudioStream struct {
 }
 
 var (
-	AudioStreamBroker *util.Broker[EnumAudioStreamState] = util.NewBroker[EnumAudioStreamState]()
+	audioStreamBroker *util.Broker[EnumAudioStreamState]
 )
 
 var (
@@ -21,6 +21,11 @@ var (
 	bufferCallbackFuncArray []func(buffer [][2]float64) // 오디오 버퍼 접근 함수 콜백
 	audioBuffer             [][2]float64                // 오디오 버퍼
 )
+
+func init() {
+	audioStreamBroker = util.NewBroker[EnumAudioStreamState]()
+	audioStreamBroker.Start()
+}
 
 func Open(fpath string) {
 	audioMutex.Lock()
@@ -54,7 +59,7 @@ func Open(fpath string) {
 
 	initDevice(deviceConfig)
 
-	AudioStreamBroker.Publish(EnumAudioStreamOpen)
+	audioStreamBroker.Publish(EnumAudioStreamOpen)
 }
 
 func GetAllSampleData() [][2]float64 {
@@ -100,6 +105,10 @@ func isAudioLoaded() bool {
 	return audioStream != nil && audioDevice != nil
 }
 
+func AudioStreamBroker() *util.Broker[EnumAudioStreamState] {
+	return audioStreamBroker
+}
+
 func Close() {
 	audioMutex.Lock()
 	defer audioMutex.Unlock()
@@ -113,6 +122,6 @@ func disposeStream() {
 		audioStream.Close()
 		audioStream = nil
 		audioBuffer = nil
-		AudioStreamBroker.Publish(EnumAudioStreamClosed)
+		audioStreamBroker.Publish(EnumAudioStreamClosed)
 	}
 }
