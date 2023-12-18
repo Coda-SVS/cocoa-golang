@@ -1,12 +1,19 @@
 package imguiw
 
 import (
+	"sync"
+	"time"
+
 	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/log"
 	"github.com/sasha-s/go-deadlock"
 )
 
-var logger *log.Logger
+var (
+	logger *log.Logger
+
+	beforeDestroyContextCallback func()
+)
 
 func init() {
 	logOption := log.NewLoggerOption()
@@ -18,12 +25,15 @@ func init() {
 
 func InitImgui(title string, width, height int) {
 	Context = &ImguiWContext{}
+
+	Context.waitGroup = &sync.WaitGroup{}
+	Context.mutex = new(deadlock.RWMutex)
+
 	Context.context = imgui.CreateContext()
 	imgui.SetCurrentContext(Context.context)
 	Context.imBackend = imgui.CreateBackend(imgui.NewGLFWBackend())
 	Context.imDPI = NewImguiDPI(nil, Context.context, nil)
 	Context.FontAtlas = newFontAtlas()
-	Context.Mutex = new(deadlock.RWMutex)
 
 	io := imgui.CurrentIO()
 
@@ -58,9 +68,9 @@ func InitImgui(title string, width, height int) {
 		Context.FontAtlas.shouldRebuildFontAtlas = true
 	}
 
-	Context.imBackend.CreateWindow(title, width, height)
-
 	// Context.imBackend.SetCloseCallback(closeCallback)
+
+	Context.imBackend.CreateWindow(title, width, height)
 
 	logger.Trace("(Call) InitImgui")
 }
@@ -70,8 +80,9 @@ func Run(fn func()) {
 }
 
 func beforeRender() {
-	Context.Mutex.Lock()
-	defer Context.Mutex.Unlock()
+	mtx := Context.Mutex()
+	mtx.Lock()
+	defer mtx.Unlock()
 
 	Context.FontAtlas.rebuildFontAtlas()
 }
@@ -83,7 +94,19 @@ func afterCreateContext() {
 	logger.Trace("(Call) afterCreateContext")
 }
 
+func SetBeforeDestroyContextCallback(f func()) {
+	beforeDestroyContextCallback = f
+}
+
 func beforeDestroyContext() {
+	if beforeDestroyContextCallback != nil {
+		beforeDestroyContextCallback()
+	}
+
+	if waitTimeout(Context.waitGroup, time.Duration(time.Second*5)) {
+		logger.Error("서브루틴 종료실패")
+	}
+
 	imgui.ImNodesDestroyContext()
 	imgui.PlotDestroyContext()
 
@@ -91,4 +114,19 @@ func beforeDestroyContext() {
 }
 
 // func closeCallback(backend imgui.Backend[imgui.GLFWWindowFlags]) {
+// 	logger.Trace("(Call) closeCallback")
 // }
+
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return false
+	case <-time.After(timeout):
+		return true
+	}
+}

@@ -28,22 +28,25 @@ func NewMainWindow() (window *MainWindow) {
 }
 
 func (mw *MainWindow) Title() string {
-	imguiw.Context.Mutex.RLock()
-	defer imguiw.Context.Mutex.RUnlock()
+	mtx := imguiw.Context.Mutex()
+	mtx.Lock()
+	defer mtx.Unlock()
 
 	return mw.title
 }
 
 func (mw *MainWindow) IsOpen() bool {
-	imguiw.Context.Mutex.RLock()
-	defer imguiw.Context.Mutex.RUnlock()
+	mtx := imguiw.Context.Mutex()
+	mtx.Lock()
+	defer mtx.Unlock()
 
 	return mw.State.IsOpen
 }
 
 func (mw *MainWindow) SetIsOpen(value bool) {
-	imguiw.Context.Mutex.Lock()
-	defer imguiw.Context.Mutex.Unlock()
+	mtx := imguiw.Context.Mutex()
+	mtx.Lock()
+	defer mtx.Unlock()
 
 	mw.State.IsOpen = value
 }
