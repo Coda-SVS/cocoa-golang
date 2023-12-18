@@ -16,6 +16,9 @@ type MainWindow struct {
 type MainWindowState struct {
 	IsOpen           bool
 	LeftSidePanelPos float32
+
+	isShowMetricsWindow     bool
+	isPlotShowMetricsWindow bool
 }
 
 func NewMainWindow() (window *MainWindow) {
@@ -90,12 +93,26 @@ func (mw *MainWindow) View() {
 				}
 				imgui.EndMenu()
 			}
+			if imgui.BeginMenu(imguiw.RS("Debug")) {
+				imgui.MenuItemBoolPtr(imguiw.RS("Metrics Window"), "", &mw.State.isShowMetricsWindow)
+				imgui.MenuItemBoolPtr(imguiw.RS("Plot Metrics Window"), "", &mw.State.isPlotShowMetricsWindow)
+				imgui.EndMenu()
+			}
 			imgui.EndMenuBar()
 		}
 		widget.GetWaveformPlot().View()
 	}
 	imgui.End()
 	imgui.PopStyleVar()
+
+	if mw.State.isShowMetricsWindow {
+		imguiw.ApplySubWindowClass()
+		imgui.ShowMetricsWindowV(&mw.State.isShowMetricsWindow)
+	}
+	if mw.State.isPlotShowMetricsWindow {
+		imguiw.ApplySubWindowClass()
+		imgui.PlotShowMetricsWindowV(&mw.State.isPlotShowMetricsWindow)
+	}
 }
 
 func openFile() {
