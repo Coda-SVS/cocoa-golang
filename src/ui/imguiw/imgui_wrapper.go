@@ -6,7 +6,6 @@ import (
 
 	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/log"
-	"github.com/sasha-s/go-deadlock"
 )
 
 var (
@@ -27,7 +26,6 @@ func InitImgui(title string, width, height int) {
 	Context = &ImguiWContext{}
 
 	Context.waitGroup = &sync.WaitGroup{}
-	Context.mutex = new(deadlock.RWMutex)
 
 	Context.context = imgui.CreateContext()
 	imgui.SetCurrentContext(Context.context)
@@ -80,10 +78,6 @@ func Run(fn func()) {
 }
 
 func beforeRender() {
-	mtx := Context.Mutex()
-	mtx.Lock()
-	defer mtx.Unlock()
-
 	Context.FontAtlas.rebuildFontAtlas()
 }
 

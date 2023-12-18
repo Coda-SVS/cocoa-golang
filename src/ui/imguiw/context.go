@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	imgui "github.com/AllenDang/cimgui-go"
-	"github.com/sasha-s/go-deadlock"
 )
 
 var Context *ImguiWContext
@@ -14,7 +13,6 @@ type ImguiWContext struct {
 	imBackend imgui.Backend[imgui.GLFWWindowFlags]
 	FontAtlas *FontAtlas
 	context   *imgui.Context
-	mutex     *deadlock.RWMutex
 	waitGroup *sync.WaitGroup
 	idCounter int
 }
@@ -34,8 +32,4 @@ func (ic *ImguiWContext) IO() *imgui.IO {
 
 func (ic *ImguiWContext) WaitGroup() *sync.WaitGroup {
 	return ic.waitGroup
-}
-
-func (ic *ImguiWContext) Mutex() *deadlock.RWMutex {
-	return ic.mutex
 }

@@ -33,26 +33,14 @@ func NewMainWindow() (window *MainWindow) {
 }
 
 func (mw *MainWindow) Title() string {
-	mtx := imguiw.Context.Mutex()
-	mtx.Lock()
-	defer mtx.Unlock()
-
 	return mw.title
 }
 
 func (mw *MainWindow) IsOpen() bool {
-	mtx := imguiw.Context.Mutex()
-	mtx.Lock()
-	defer mtx.Unlock()
-
 	return mw.State.IsOpen
 }
 
 func (mw *MainWindow) SetIsOpen(value bool) {
-	mtx := imguiw.Context.Mutex()
-	mtx.Lock()
-	defer mtx.Unlock()
-
 	mw.State.IsOpen = value
 }
 
