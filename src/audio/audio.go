@@ -31,4 +31,5 @@ func Dispose() {
 	defer disposeDevice()
 	defer disposeContext()
 	defer disposeStream()
+	defer audioStreamBroker.Stop()
 }
