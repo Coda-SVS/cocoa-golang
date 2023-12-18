@@ -41,6 +41,17 @@ func (lm *LogBox) AddCallStack(skip int) bool {
 	}
 }
 
+func (lm *LogBox) AddCallStackFromError(err *util.ErrorW, callStackSkip int) bool {
+	ok := err.AddCallStack(callStackSkip+1, false)
+
+	if !ok {
+		return false
+	} else {
+		lm.callerLocation = err.CallFile()
+		return true
+	}
+}
+
 func (lm *LogBox) Message() string {
 	return lm.message
 }
