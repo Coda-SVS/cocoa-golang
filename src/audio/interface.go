@@ -17,7 +17,7 @@ func IsRunning() bool {
 	audioMutex.Lock()
 	defer audioMutex.Unlock()
 
-	return audioDevice.IsStarted()
+	return isAudioLoaded() && audioDevice.IsStarted()
 }
 
 func Play() {
