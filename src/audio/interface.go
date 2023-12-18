@@ -32,8 +32,11 @@ func Play() {
 		err := audioDevice.Start()
 		if err != nil {
 			logger.Errorf("오디오 재생 실패 (err=%v)", err)
+			return
 		}
 	}
+
+	audioStreamBroker.Publish(EnumAudioStreamStarted)
 }
 
 func Pause() {
@@ -48,8 +51,11 @@ func Pause() {
 		err := audioDevice.Stop()
 		if err != nil {
 			logger.Errorf("오디오 중지 실패 (err=%v)", err)
+			return
 		}
 	}
+
+	audioStreamBroker.Publish(EnumAudioStreamPaused)
 }
 
 func Stop() {
@@ -72,6 +78,8 @@ func Stop() {
 		logger.Errorf("오디오 위치 이동 실패 (err=%v)", err)
 		return
 	}
+
+	audioStreamBroker.Publish(EnumAudioStreamStoped)
 }
 
 func SetPosition(t time.Duration) {
@@ -101,6 +109,7 @@ func SetPosition(t time.Duration) {
 		err := audioDevice.Start()
 		if err != nil {
 			logger.Errorf("오디오 재생 실패 (err=%v)", err)
+			return
 		}
 	}
 }
