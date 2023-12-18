@@ -92,9 +92,7 @@ func (mw *MainWindow) View() {
 			}
 			imgui.EndMenuBar()
 		}
-		imgui.Text(imguiw.RS("Hello!"))
-		imgui.Text(imguiw.RS("안녕!"))
-		imgui.Text(imguiw.RS("👍⭐"))
+		widget.GetWaveformPlot().View()
 	}
 	imgui.End()
 	imgui.PopStyleVar()
