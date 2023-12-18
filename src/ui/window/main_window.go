@@ -18,7 +18,9 @@ type MainWindowState struct {
 	LeftSidePanelPos float32
 
 	isShowMetricsWindow     bool
+	isShowDemoWindow        bool
 	isPlotShowMetricsWindow bool
+	isPlotShowDemoWindow    bool
 }
 
 func NewMainWindow() (window *MainWindow) {
@@ -96,6 +98,8 @@ func (mw *MainWindow) View() {
 			if imgui.BeginMenu(imguiw.RS("Debug")) {
 				imgui.MenuItemBoolPtr(imguiw.RS("Metrics Window"), "", &mw.State.isShowMetricsWindow)
 				imgui.MenuItemBoolPtr(imguiw.RS("Plot Metrics Window"), "", &mw.State.isPlotShowMetricsWindow)
+				imgui.MenuItemBoolPtr(imguiw.RS("Demo Window"), "", &mw.State.isShowDemoWindow)
+				imgui.MenuItemBoolPtr(imguiw.RS("Plot Demo Window"), "", &mw.State.isPlotShowDemoWindow)
 				imgui.EndMenu()
 			}
 			imgui.EndMenuBar()
@@ -109,9 +113,17 @@ func (mw *MainWindow) View() {
 		imguiw.ApplySubWindowClass()
 		imgui.ShowMetricsWindowV(&mw.State.isShowMetricsWindow)
 	}
+	if mw.State.isShowDemoWindow {
+		imguiw.ApplySubWindowClass()
+		imgui.ShowDemoWindowV(&mw.State.isShowDemoWindow)
+	}
 	if mw.State.isPlotShowMetricsWindow {
 		imguiw.ApplySubWindowClass()
 		imgui.PlotShowMetricsWindowV(&mw.State.isPlotShowMetricsWindow)
+	}
+	if mw.State.isPlotShowDemoWindow {
+		imguiw.ApplySubWindowClass()
+		imgui.PlotShowDemoWindowV(&mw.State.isPlotShowDemoWindow)
 	}
 }
 
