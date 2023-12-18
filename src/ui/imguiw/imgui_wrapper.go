@@ -40,18 +40,10 @@ func InitImgui(title string, width, height int) {
 
 	io.SetIniFilename("")
 
-	// logger.Tracef("imgui.CurrentIO().IniFilename()=%v", imgui.CurrentIO().IniFilename())
-	// logger.Tracef("io.IniFilename()=%v", io.IniFilename())
-
 	Context.imBackend.SetTargetFPS(60)
 	Context.imBackend.SetBeforeRenderHook(beforeRender)
 	Context.imBackend.SetAfterCreateContextHook(afterCreateContext)
 	Context.imBackend.SetBeforeDestroyContextHook(beforeDestroyContext)
-
-	// Context.imBackend.SetWindowFlags(imgui.GLFWWindowFlagsVisible, 0)
-	// Context.imBackend.SetWindowFlags(imgui.GLFWWindowFlagsFloating, 0)
-	// Context.imBackend.SetWindowFlags(imgui.GLFWWindowFlagsTransparent, 0)
-	// io.SetConfigViewportsNoAutoMerge(true)
 
 	// Create font
 	fonts := Context.IO().Fonts()
@@ -65,8 +57,6 @@ func InitImgui(title string, width, height int) {
 	} else {
 		Context.FontAtlas.shouldRebuildFontAtlas = true
 	}
-
-	// Context.imBackend.SetCloseCallback(closeCallback)
 
 	Context.imBackend.CreateWindow(title, width, height)
 
@@ -106,10 +96,6 @@ func beforeDestroyContext() {
 
 	logger.Trace("(Call) beforeDestroyContext")
 }
-
-// func closeCallback(backend imgui.Backend[imgui.GLFWWindowFlags]) {
-// 	logger.Trace("(Call) closeCallback")
-// }
 
 func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	c := make(chan struct{})
