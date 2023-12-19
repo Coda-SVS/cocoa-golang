@@ -12,3 +12,10 @@ type Window interface {
 	IsOpen() bool
 	SetIsOpen(bool)
 }
+
+type PlotWidget interface {
+	Plot()
+	UpdateData()
+	EventHandler(eventArgs any)
+	IsDisposed() bool
+}

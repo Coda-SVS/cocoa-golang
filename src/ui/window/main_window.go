@@ -9,8 +9,9 @@ import (
 )
 
 type MainWindow struct {
-	title string
-	State MainWindowState
+	title      string
+	State      MainWindowState
+	plotWidget *widget.Plot
 }
 
 type MainWindowState struct {
@@ -29,6 +30,10 @@ func NewMainWindow() (window *MainWindow) {
 	window.State = MainWindowState{
 		LeftSidePanelPos: 400,
 	}
+
+	window.plotWidget = widget.NewPlot()
+	window.plotWidget.AddPlot(widget.GetWaveformPlot())
+
 	return window
 }
 
@@ -92,7 +97,7 @@ func (mw *MainWindow) View() {
 			}
 			imgui.EndMenuBar()
 		}
-		widget.GetWaveformPlot().View()
+		mw.plotWidget.View()
 	}
 	imgui.End()
 	imgui.PopStyleVar()

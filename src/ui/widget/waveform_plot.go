@@ -2,7 +2,6 @@ package widget
 
 import (
 	"sync"
-	"time"
 
 	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/audio"
@@ -43,6 +42,8 @@ func (wd *WaveformPlotData) Clear() {
 }
 
 type WaveformPlot struct {
+	imguiw.PlotWidget
+
 	logger *log.Logger
 
 	isShouldDataRefresh bool
@@ -50,19 +51,13 @@ type WaveformPlot struct {
 	sampleArray       *WaveformPlotData
 	sampleArrayView   *WaveformPlotData
 	maxSampleCount    int
-	sampleCutIndex    *util.ArrayIndex
-	sampleCutIndexOld *util.ArrayIndex
+	sampleCutIndex    *util.Index
+	sampleCutIndexOld *util.Index
 
 	axisXLimitMax float64
 	offset        int32
-	isFitRequest  bool
 
-	audioStreamPosID           int32
-	audioStreamPos             float64
-	audioStreamPos_out_clicked bool
-	audioStreamPos_out_hovered bool
-	audioStreamPos_held        bool
-	audioStreamPos_IsPaused    bool
+	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
 }
 
 // 싱글톤
@@ -72,15 +67,15 @@ func GetWaveformPlot() *WaveformPlot {
 			isShouldDataRefresh: true,
 			sampleArray:         NewWaveformPlotData(),
 			sampleArrayView:     NewWaveformPlotData(),
-			sampleCutIndex:      util.NewArrayIndex(0, 0),
-			sampleCutIndexOld:   util.NewArrayIndex(0, 0),
+			sampleCutIndex:      util.NewIndex(0, 0),
+			sampleCutIndexOld:   util.NewIndex(0, 0),
 			maxSampleCount:      50000,
-			axisXLimitMax:       30,
+			axisXLimitMax:       DefaultAxisXLimitMax,
 		}
 
 		logOption := log.NewLoggerOption()
 		logOption.Prefix = "[waveform]"
-		waveformPlotInstance.logger = logger.NewSimpleLogger(logOption)
+		waveformPlotInstance.logger = plotLogger.NewSimpleLogger(logOption)
 
 		waveformPlotInstance.logger.Trace("waveform init...")
 
@@ -90,78 +85,36 @@ func GetWaveformPlot() *WaveformPlot {
 	return waveformPlotInstance
 }
 
-func (wp *WaveformPlot) View() {
-	if imgui.PlotBeginPlotV(
-		imguiw.T("Waveform"),
-		imgui.Vec2{X: -1, Y: -1},
-		imgui.PlotFlagsNoLegend|imgui.PlotFlagsNoTitle|imgui.PlotFlagsNoMenus|imgui.PlotFlagsNoMouseText,
-	) {
-		wp.updateData()
-		dataLen := wp.sampleArray.LengthY()
+func (wp *WaveformPlot) Plot() {
+	dataLen := wp.sampleArray.LengthY()
 
-		imgui.PlotSetupAxisV(
-			imgui.AxisX1,
-			"WavefromPlotX",
-			imgui.PlotAxisFlags(imgui.PlotAxisFlagsNoLabel),
+	if dataLen > 0 {
+		mouseWheelDelta := imguiw.Context.IO().MouseWheel()
+		if mouseWheelDelta == 0 {
+			wp.updateViewData()
+		}
+
+		imgui.PlotPlotLinedoublePtrdoublePtrV(
+			"WavefromData",
+			&wp.sampleArrayView.X,
+			&wp.sampleArrayView.Y,
+			int32(wp.sampleArrayView.LengthY()),
+			imgui.PlotLineFlagsNone,
+			wp.offset,
+			8,
 		)
-		imgui.PlotSetupAxisV(
-			imgui.AxisY1,
-			"WavefromPlotY",
-			imgui.PlotAxisFlags(imgui.PlotAxisFlagsLock|imgui.PlotAxisFlagsNoTickLabels|imgui.PlotAxisFlagsNoGridLines|imgui.PlotAxisFlagsNoLabel),
-		)
 
-		imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, wp.axisXLimitMax)
-		imgui.PlotSetupAxisLimitsV(imgui.AxisY1, -0.5, 0.5, imgui.PlotCondAlways)
+		plotDrawEndEventArgs := *wp.plotDrawEndEventArgs
 
-		if wp.isFitRequest {
-			imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, wp.axisXLimitMax, imgui.PlotCondAlways)
-			wp.isFitRequest = false
-		}
-
-		imgui.PlotSetupLock()
-
-		if dataLen > 0 {
-			mouseWheelDelta := imguiw.Context.IO().MouseWheel()
-			if mouseWheelDelta == 0 {
-				wp.updateViewData()
-			}
-
-			imgui.PlotPlotLinedoublePtrdoublePtrV(
-				"WavefromData",
-				&wp.sampleArrayView.X,
-				&wp.sampleArrayView.Y,
-				int32(wp.sampleArrayView.LengthY()),
-				imgui.PlotLineFlagsNone,
-				wp.offset,
-				8,
-			)
-
-			wp.audioStreamPosDragLine()
-
-			plotSize := imgui.PlotGetPlotSize()
-			plotPos := imgui.PlotGetPlotPos()
-
-			plotEndSize := plotSize.Add(plotPos)
-
-			plotStartPoint := imgui.PlotPixelsToPlotFloatV(plotPos.X, plotPos.Y, imgui.AxisX1, imgui.AxisY1).X
-			plotEndPoint := imgui.PlotPixelsToPlotFloatV(plotEndSize.X, plotEndSize.Y, imgui.AxisX1, imgui.AxisY1).X
-
-			sampleRate := audio.StreamFormat().SampleRate
-			wp.sampleCutIndex.Start = max(0, int(plotStartPoint*float64(sampleRate)))
-			wp.sampleCutIndex.End = min(dataLen, int(plotEndPoint*float64(sampleRate)))
-		}
-
-		if imgui.PlotIsPlotHovered() && imgui.IsMouseDoubleClicked(imgui.MouseButtonLeft) {
-			wp.isFitRequest = true
-		}
-
-		imgui.PlotEndPlot()
+		sampleRate := audio.StreamFormat().SampleRate
+		wp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sampleRate)))
+		wp.sampleCutIndex.End = min(dataLen, int(plotDrawEndEventArgs.PlotPointEnd*float64(sampleRate)))
 	}
 }
 
 // 현재 오디오 스트림에서 데이터 불러오기
 // TODO: 메모리 최적화 (현재 약 4분 44100Hz 오디오의 경우 500~800MB의 메모리 소모)
-func (wp *WaveformPlot) updateData() {
+func (wp *WaveformPlot) UpdateData() {
 	if !wp.isShouldDataRefresh {
 		return
 	}
@@ -187,7 +140,6 @@ func (wp *WaveformPlot) updateData() {
 		wp.clear()
 	}
 
-	wp.isFitRequest = true
 	wp.isShouldDataRefresh = false
 }
 
@@ -228,38 +180,10 @@ func (wp *WaveformPlot) updateViewData() {
 	}
 }
 
-// 재생 위치 표시 및 조작
-func (wp *WaveformPlot) audioStreamPosDragLine() {
-	if !audio.IsAudioLoaded() {
-		return
-	}
-
-	wp.audioStreamPos = audio.Position().Seconds()
-	_audioStreamPos := wp.audioStreamPos
-	imgui.PlotDragLineXV(
-		wp.audioStreamPosID,
-		&wp.audioStreamPos,
-		imgui.NewVec4(255, 0, 0, 255),
-		1,
-		imgui.PlotDragToolFlagsDelayed,
-		&wp.audioStreamPos_out_clicked,
-		&wp.audioStreamPos_out_hovered,
-		&wp.audioStreamPos_held,
-	)
-
-	if wp.audioStreamPos_held {
-		if !wp.audioStreamPos_IsPaused && audio.IsRunning() {
-			audio.Pause()
-			wp.audioStreamPos_IsPaused = true
-		}
-		if _audioStreamPos != wp.audioStreamPos {
-			audio.SetPosition(time.Duration(wp.audioStreamPos * float64(time.Second)))
-		}
-	}
-
-	if wp.audioStreamPos_out_clicked && wp.audioStreamPos_IsPaused {
-		audio.Play()
-		wp.audioStreamPos_IsPaused = false
+func (wp *WaveformPlot) EventHandler(eventArgs any) {
+	switch castEventArgs := eventArgs.(type) {
+	case util.PlotDrawEndEventArgs:
+		wp.plotDrawEndEventArgs = &castEventArgs
 	}
 }
 
@@ -267,8 +191,12 @@ func (wp *WaveformPlot) clear() {
 	wp.sampleArray.Clear()
 	wp.sampleArrayView.Clear()
 	wp.axisXLimitMax = 30
-	wp.sampleCutIndex = util.NewArrayIndex(0, 0)
-	wp.sampleCutIndexOld = util.NewArrayIndex(0, 0)
+	wp.sampleCutIndex = util.NewIndex(0, 0)
+	wp.sampleCutIndexOld = util.NewIndex(0, 0)
+}
+
+func (wp *WaveformPlot) IsDisposed() bool {
+	return false
 }
 
 // 오디오 스트림의 이벤트 수신

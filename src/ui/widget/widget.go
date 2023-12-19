@@ -4,6 +4,10 @@ import (
 	"github.com/Kor-SVS/cocoa/src/log"
 )
 
+const (
+	DefaultAxisXLimitMax = 30
+)
+
 var (
 	logger *log.Logger
 )

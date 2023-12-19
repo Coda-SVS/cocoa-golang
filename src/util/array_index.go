@@ -1,21 +1,21 @@
 package util
 
-type ArrayIndex struct {
+type Index struct {
 	Start int
 	End   int
 }
 
-func NewArrayIndex(start, end int) *ArrayIndex {
-	return &ArrayIndex{
+func NewIndex(start, end int) *Index {
+	return &Index{
 		Start: start,
 		End:   end,
 	}
 }
 
-func (a ArrayIndex) Equal(b ArrayIndex) bool {
+func (a Index) Equal(b Index) bool {
 	return a.Start == b.Start && a.End == b.End
 }
 
-func (a ArrayIndex) Size() int {
+func (a Index) Size() int {
 	return a.End - a.Start
 }
