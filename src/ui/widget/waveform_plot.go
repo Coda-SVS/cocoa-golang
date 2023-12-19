@@ -46,6 +46,8 @@ type WaveformPlot struct {
 
 	logger *log.Logger
 
+	title string
+
 	isShouldDataRefresh bool
 
 	sampleArray       *WaveformPlotData
@@ -64,6 +66,7 @@ type WaveformPlot struct {
 func GetWaveformPlot() *WaveformPlot {
 	waveformPlotOnce.Do(func() {
 		waveformPlotInstance = &WaveformPlot{
+			title:               "Wavefrom Data",
 			isShouldDataRefresh: true,
 			sampleArray:         NewWaveformPlotData(),
 			sampleArrayView:     NewWaveformPlotData(),
@@ -89,13 +92,8 @@ func (wp *WaveformPlot) Plot() {
 	dataLen := wp.sampleArray.LengthY()
 
 	if dataLen > 0 {
-		mouseWheelDelta := imguiw.Context.IO().MouseWheel()
-		if mouseWheelDelta == 0 {
-			wp.updateViewData()
-		}
-
 		imgui.PlotPlotLinedoublePtrdoublePtrV(
-			"WavefromData",
+			wp.title,
 			&wp.sampleArrayView.X,
 			&wp.sampleArrayView.Y,
 			int32(wp.sampleArrayView.LengthY()),
@@ -115,36 +113,40 @@ func (wp *WaveformPlot) Plot() {
 // 현재 오디오 스트림에서 데이터 불러오기
 // TODO: 메모리 최적화 (현재 약 4분 44100Hz 오디오의 경우 500~800MB의 메모리 소모)
 func (wp *WaveformPlot) UpdateData() {
-	if !wp.isShouldDataRefresh {
-		return
-	}
+	if wp.isShouldDataRefresh {
+		if audio.IsAudioLoaded() {
+			format := audio.StreamFormat()
+			sampleArray := dsp.StereoToMono(audio.GetAllSampleData())
+			sampleRate := int(format.SampleRate)
+			sampleCount := len(sampleArray)
 
-	if audio.IsAudioLoaded() {
-		format := audio.StreamFormat()
-		sampleArray := dsp.StereoToMono(audio.GetAllSampleData())
-		sampleRate := int(format.SampleRate)
-		sampleCount := len(sampleArray)
+			wp.sampleArray.Y = sampleArray
+			sampleArrayX := make([]float64, sampleCount)
+			for i := 0; i < sampleCount; i++ {
+				sampleArrayX[i] = float64(i) / float64(sampleRate)
+			}
+			wp.sampleArray.X = sampleArrayX
 
-		wp.sampleArray.Y = sampleArray
-		sampleArrayX := make([]float64, sampleCount)
-		for i := 0; i < sampleCount; i++ {
-			sampleArrayX[i] = float64(i) / float64(sampleRate)
+			wp.axisXLimitMax = audio.Duration().Seconds()
+
+			wp.sampleCutIndex.Start = 0
+			wp.sampleCutIndex.End = sampleCount
+		} else {
+			wp.clear()
 		}
-		wp.sampleArray.X = sampleArrayX
 
-		wp.axisXLimitMax = audio.Duration().Seconds()
-
-		wp.sampleCutIndex.Start = 0
-		wp.sampleCutIndex.End = sampleCount
-	} else {
-		wp.clear()
+		wp.isShouldDataRefresh = false
 	}
 
-	wp.isShouldDataRefresh = false
+	wp.updateViewData()
 }
 
 // Plot에 표시되는 데이터 처리 (화면 밖 데이터 Cut, 다운샘플링)
 func (wp *WaveformPlot) updateViewData() {
+	if !audio.IsAudioLoaded() {
+		return
+	}
+
 	sampleCutIndex := *wp.sampleCutIndex
 	sampleCutIndexOld := *wp.sampleCutIndexOld
 
@@ -178,6 +180,10 @@ func (wp *WaveformPlot) updateViewData() {
 
 		wp.sampleCutIndexOld = &sampleCutIndex
 	}
+}
+
+func (wp *WaveformPlot) Title() string {
+	return wp.title
 }
 
 func (wp *WaveformPlot) EventHandler(eventArgs any) {

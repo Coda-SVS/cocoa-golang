@@ -19,7 +19,8 @@ var (
 
 type Plot struct {
 	logger      *log.Logger
-	plotWidgets []*imguiw.PlotWidget
+	plotWidgets map[string]*imguiw.PlotWidget
+	wg          *sync.WaitGroup
 
 	isFitRequest  bool
 	axisXLimitMax float64
@@ -43,8 +44,12 @@ func NewPlot() *Plot {
 
 	plotInstance = &Plot{}
 	plotInstance.logger = plotLogger
+	plotInstance.plotWidgets = make(map[string]*imguiw.PlotWidget)
+	plotInstance.wg = &sync.WaitGroup{}
+
 	plotInstance.eventHandler_AudioStreamChanged()
 	plotInstance.axisXLimitMax = DefaultAxisXLimitMax
+
 	return plotInstance
 }
 
@@ -53,10 +58,24 @@ func (p *Plot) AddPlot(plotWidget imguiw.PlotWidget) {
 		return
 	}
 
-	p.plotWidgets = append(p.plotWidgets, &plotWidget)
+	p.plotWidgets[plotWidget.Title()] = &plotWidget
+}
+
+func (p *Plot) RemoveDisposedPlotData() {
+	if len(p.plotWidgets) == 0 {
+		return
+	}
+
+	for titleKey, plotDataValue := range p.plotWidgets {
+		if (*plotDataValue).IsDisposed() {
+			delete(p.plotWidgets, titleKey)
+		}
+	}
 }
 
 func (p *Plot) View() {
+	p.RemoveDisposedPlotData()
+
 	if len(p.plotWidgets) == 0 {
 		return
 	}
@@ -66,15 +85,14 @@ func (p *Plot) View() {
 		imgui.Vec2{X: -1, Y: -1},
 		imgui.PlotFlagsNoLegend|imgui.PlotFlagsNoTitle|imgui.PlotFlagsNoMenus|imgui.PlotFlagsNoMouseText,
 	) {
-		wg := sync.WaitGroup{}
 		for _, dataPlot := range p.plotWidgets {
-			wg.Add(1)
+			p.wg.Add(1)
 			go func(pw *imguiw.PlotWidget) {
-				defer wg.Done()
+				defer p.wg.Done()
 				(*pw).UpdateData()
 			}(dataPlot)
 		}
-		wg.Wait()
+		p.wg.Wait()
 
 		imgui.PlotSetupAxisV(
 			imgui.AxisX1,
@@ -120,13 +138,13 @@ func (p *Plot) View() {
 		}
 
 		for _, dataPlot := range p.plotWidgets {
-			wg.Add(1)
+			p.wg.Add(1)
 			go func(pw *imguiw.PlotWidget) {
-				defer wg.Done()
+				defer p.wg.Done()
 				(*pw).EventHandler(plotDrawEndEventArgs)
 			}(dataPlot)
 		}
-		wg.Wait()
+		p.wg.Wait()
 
 		imgui.PlotEndPlot()
 	}
@@ -180,6 +198,7 @@ func (p *Plot) eventHandler_AudioStreamChanged() {
 				if p.axisXLimitMax == 0 {
 					plotInstance.axisXLimitMax = DefaultAxisXLimitMax
 				}
+				p.isFitRequest = true
 			case audio.EnumAudioStreamClosed:
 				plotInstance.axisXLimitMax = DefaultAxisXLimitMax
 			}
