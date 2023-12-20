@@ -112,12 +112,11 @@ func (wp *WaveformPlot) Plot() {
 }
 
 // 현재 오디오 스트림에서 데이터 불러오기
-// TODO: 메모리 최적화 (현재 약 4분 44100Hz 오디오의 경우 500~800MB의 메모리 소모)
 func (wp *WaveformPlot) UpdateData() {
 	if wp.isShouldDataRefresh {
 		if audio.IsAudioLoaded() {
 			format := audio.StreamFormat()
-			sampleArray := dsp.StereoToMono(audio.GetAllSampleData())
+			sampleArray := audio.GetMonoAllSampleData()
 			sampleRate := int(format.SampleRate)
 			sampleCount := len(sampleArray)
 
@@ -157,6 +156,13 @@ func (wp *WaveformPlot) updateViewData() {
 		viewSampleCount := sampleCutIndex.Size()
 
 		simpleCut := func() {
+			if len(wp.sampleArray.Y) < sampleCutIndex.End {
+				sampleCutIndex.End = len(wp.sampleArray.Y)
+			}
+			if sampleCutIndex.End <= sampleCutIndex.Start {
+				sampleCutIndex.Start = sampleCutIndex.End - 1
+			}
+
 			sampleX := wp.sampleArray.X[sampleCutIndex.Start:sampleCutIndex.End]
 			sampleY := wp.sampleArray.Y[sampleCutIndex.Start:sampleCutIndex.End]
 			copy(wp.sampleArrayView.X, sampleX)

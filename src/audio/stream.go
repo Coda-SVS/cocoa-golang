@@ -22,6 +22,9 @@ var (
 	audioStream             *AudioStream                // 오디오 데이터 스트림
 	bufferCallbackFuncArray []func(buffer [][2]float64) // 오디오 버퍼 접근 함수 콜백
 	audioBuffer             [][2]float64                // 오디오 버퍼 (재생)
+
+	isValidAudioReadBuffer bool      // 오디오 버퍼 유효 여부
+	audioReadBuffer        []float64 // 오디오 버퍼 (버퍼 읽기)
 )
 
 func init() {
@@ -64,10 +67,29 @@ func Open(fpath string) {
 	audioStreamBroker.Publish(EnumAudioStreamOpen)
 }
 
+func GetMonoAllSampleData() []float64 {
+	audioMutex.Lock()
+	defer audioMutex.Unlock()
+
+	if isValidAudioReadBuffer {
+		return audioReadBuffer
+	} else {
+		buf := readAllSampleData()
+		audioReadBuffer = dsp.StereoToMono(buf)
+		isValidAudioReadBuffer = true
+	}
+
+	return audioReadBuffer
+}
+
 func GetAllSampleData() [][2]float64 {
 	audioMutex.Lock()
 	defer audioMutex.Unlock()
 
+	return readAllSampleData()
+}
+
+func readAllSampleData() [][2]float64 {
 	buf := make([][2]float64, audioStream.Len())
 
 	audioStreamReadMutex.Lock()
@@ -125,11 +147,14 @@ func Close() {
 }
 
 func disposeStream() {
+	disposeDevice()
+
 	if audioStream != nil {
-		disposeDevice()
 		audioStream.Close()
 		audioStream = nil
 		audioBuffer = nil
+		isValidAudioReadBuffer = false
+		audioReadBuffer = nil
 		audioStreamBroker.Publish(EnumAudioStreamClosed)
 		runtime.GC()
 	}
