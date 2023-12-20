@@ -103,11 +103,13 @@ func (wp *WaveformPlot) Plot() {
 			8,
 		)
 
-		plotDrawEndEventArgs := *wp.plotDrawEndEventArgs
+		if wp.plotDrawEndEventArgs != nil {
+			plotDrawEndEventArgs := *wp.plotDrawEndEventArgs
 
-		sampleRate := audio.StreamFormat().SampleRate
-		wp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sampleRate)))
-		wp.sampleCutIndex.End = min(dataLen, int(plotDrawEndEventArgs.PlotPointEnd*float64(sampleRate)))
+			sampleRate := audio.StreamFormat().SampleRate
+			wp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sampleRate)))
+			wp.sampleCutIndex.End = min(dataLen, int(plotDrawEndEventArgs.PlotPointEnd*float64(sampleRate)))
+		}
 	}
 }
 
