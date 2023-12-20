@@ -83,6 +83,9 @@ func (mw *MainWindow) View() {
 				if imgui.MenuItemBool(imguiw.T("AudioStop")) {
 					stopAudio()
 				}
+				if imgui.MenuItemBool(imguiw.RS("오디오 닫기")) {
+					closeAudio()
+				}
 				if imgui.MenuItemBool(imguiw.RS("시작위치로 이동")) {
 					goStartPosAudio()
 				}
@@ -152,6 +155,13 @@ func stopAudio() {
 	go func() {
 		logger.Trace("[Event Callback] 오디오 중지")
 		audio.Stop()
+	}()
+}
+
+func closeAudio() {
+	go func() {
+		logger.Trace("[Event Callback] 오디오 닫기")
+		audio.Close()
 	}()
 }
 
