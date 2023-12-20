@@ -49,12 +49,14 @@ type WaveformPlot struct {
 	title string
 
 	isShouldDataRefresh bool
+	isCleard            bool
 
 	sampleArray       *WaveformPlotData
 	sampleArrayView   *WaveformPlotData
 	maxSampleCount    int
 	sampleCutIndex    *util.Index
 	sampleCutIndexOld *util.Index
+	sampleRate        int
 
 	axisXLimitMax float64
 	offset        int32
@@ -68,6 +70,7 @@ func GetWaveformPlot() *WaveformPlot {
 		waveformPlotInstance = &WaveformPlot{
 			title:               "Wavefrom Data",
 			isShouldDataRefresh: true,
+			isCleard:            true,
 			sampleArray:         NewWaveformPlotData(0, 0),
 			sampleCutIndex:      util.NewIndex(0, 0),
 			sampleCutIndexOld:   util.NewIndex(0, 0),
@@ -76,6 +79,9 @@ func GetWaveformPlot() *WaveformPlot {
 		}
 
 		waveformPlotInstance.sampleArrayView = NewWaveformPlotData(0, waveformPlotInstance.maxSampleCount)
+		if audio.IsAudioLoaded() {
+			waveformPlotInstance.sampleRate = int(audio.StreamFormat().SampleRate)
+		}
 
 		logOption := log.NewLoggerOption()
 		logOption.Prefix = "[waveform]"
@@ -90,26 +96,24 @@ func GetWaveformPlot() *WaveformPlot {
 }
 
 func (wp *WaveformPlot) Plot() {
-	dataLen := wp.sampleArray.LengthY()
+	if wp.isShouldDataRefresh {
+		return
+	}
 
-	if dataLen > 0 {
-		imgui.PlotPlotLinedoublePtrdoublePtrV(
-			wp.title,
-			&wp.sampleArrayView.X,
-			&wp.sampleArrayView.Y,
-			int32(wp.sampleArrayView.LengthY()),
-			imgui.PlotLineFlagsNone,
-			wp.offset,
-			8,
-		)
+	imgui.PlotPlotLinedoublePtrdoublePtrV(
+		wp.title,
+		&wp.sampleArrayView.X,
+		&wp.sampleArrayView.Y,
+		int32(wp.sampleArrayView.LengthY()),
+		imgui.PlotLineFlagsNone,
+		wp.offset,
+		8,
+	)
 
-		if wp.plotDrawEndEventArgs != nil {
-			plotDrawEndEventArgs := *wp.plotDrawEndEventArgs
-
-			sampleRate := audio.StreamFormat().SampleRate
-			wp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sampleRate)))
-			wp.sampleCutIndex.End = min(dataLen, int(plotDrawEndEventArgs.PlotPointEnd*float64(sampleRate)))
-		}
+	if wp.plotDrawEndEventArgs != nil {
+		plotDrawEndEventArgs := *wp.plotDrawEndEventArgs
+		wp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(wp.sampleRate)))
+		wp.sampleCutIndex.End = min(wp.sampleArray.LengthY(), int(plotDrawEndEventArgs.PlotPointEnd*float64(wp.sampleRate)))
 	}
 }
 
@@ -119,13 +123,13 @@ func (wp *WaveformPlot) UpdateData() {
 		if audio.IsAudioLoaded() {
 			format := audio.StreamFormat()
 			sampleArray := audio.GetMonoAllSampleData()
-			sampleRate := int(format.SampleRate)
+			wp.sampleRate = int(format.SampleRate)
 			sampleCount := len(sampleArray)
 
 			wp.sampleArray.Y = sampleArray
 			sampleArrayX := make([]float64, sampleCount)
 			for i := 0; i < sampleCount; i++ {
-				sampleArrayX[i] = float64(i) / float64(sampleRate)
+				sampleArrayX[i] = float64(i) / float64(wp.sampleRate)
 			}
 			wp.sampleArray.X = sampleArrayX
 
@@ -133,11 +137,12 @@ func (wp *WaveformPlot) UpdateData() {
 
 			wp.sampleCutIndex.Start = 0
 			wp.sampleCutIndex.End = sampleCount
+
+			wp.isCleard = false
+			wp.isShouldDataRefresh = false
 		} else {
 			wp.clear()
 		}
-
-		wp.isShouldDataRefresh = false
 	}
 
 	wp.updateViewData()
@@ -145,7 +150,7 @@ func (wp *WaveformPlot) UpdateData() {
 
 // Plot에 표시되는 데이터 처리 (화면 밖 데이터 Cut, 다운샘플링)
 func (wp *WaveformPlot) updateViewData() {
-	if !audio.IsAudioLoaded() {
+	if wp.isShouldDataRefresh {
 		return
 	}
 
@@ -207,11 +212,16 @@ func (wp *WaveformPlot) EventHandler(eventArgs any) {
 }
 
 func (wp *WaveformPlot) clear() {
+	if wp.isCleard {
+		return
+	}
+
 	wp.sampleArray.Clear()
 	wp.sampleArrayView.Clear()
 	wp.axisXLimitMax = 30
 	wp.sampleCutIndex = util.NewIndex(0, 0)
 	wp.sampleCutIndexOld = util.NewIndex(0, 0)
+	wp.isCleard = true
 }
 
 func (wp *WaveformPlot) IsDisposed() bool {
