@@ -58,8 +58,7 @@ type WaveformPlot struct {
 	sampleCutIndexOld *util.Index
 	sampleRate        int
 
-	axisXLimitMax float64
-	offset        int32
+	offset int32
 
 	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
 }
@@ -75,7 +74,6 @@ func GetWaveformPlot() *WaveformPlot {
 			sampleCutIndex:      util.NewIndex(0, 0),
 			sampleCutIndexOld:   util.NewIndex(0, 0),
 			maxSampleCount:      50000,
-			axisXLimitMax:       DefaultAxisXLimitMax,
 		}
 
 		waveformPlotInstance.sampleArrayView = NewWaveformPlotData(0, waveformPlotInstance.maxSampleCount)
@@ -132,8 +130,6 @@ func (wp *WaveformPlot) UpdateData() {
 				sampleArrayX[i] = float64(i) / float64(wp.sampleRate)
 			}
 			wp.sampleArray.X = sampleArrayX
-
-			wp.axisXLimitMax = audio.Duration().Seconds()
 
 			wp.sampleCutIndex.Start = 0
 			wp.sampleCutIndex.End = sampleCount
@@ -218,7 +214,6 @@ func (wp *WaveformPlot) clear() {
 
 	wp.sampleArray.Clear()
 	wp.sampleArrayView.Clear()
-	wp.axisXLimitMax = 30
 	wp.sampleCutIndex = util.NewIndex(0, 0)
 	wp.sampleCutIndexOld = util.NewIndex(0, 0)
 	wp.isCleard = true
