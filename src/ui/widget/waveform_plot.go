@@ -21,10 +21,10 @@ type WaveformPlotData struct {
 	Y []float64
 }
 
-func NewWaveformPlotData() *WaveformPlotData {
+func NewWaveformPlotData(length, capacity int) *WaveformPlotData {
 	return &WaveformPlotData{
-		X: make([]float64, 0),
-		Y: make([]float64, 0),
+		X: make([]float64, length, capacity),
+		Y: make([]float64, length, capacity),
 	}
 }
 
@@ -68,13 +68,14 @@ func GetWaveformPlot() *WaveformPlot {
 		waveformPlotInstance = &WaveformPlot{
 			title:               "Wavefrom Data",
 			isShouldDataRefresh: true,
-			sampleArray:         NewWaveformPlotData(),
-			sampleArrayView:     NewWaveformPlotData(),
+			sampleArray:         NewWaveformPlotData(0, 0),
 			sampleCutIndex:      util.NewIndex(0, 0),
 			sampleCutIndexOld:   util.NewIndex(0, 0),
 			maxSampleCount:      50000,
 			axisXLimitMax:       DefaultAxisXLimitMax,
 		}
+
+		waveformPlotInstance.sampleArrayView = NewWaveformPlotData(0, waveformPlotInstance.maxSampleCount)
 
 		logOption := log.NewLoggerOption()
 		logOption.Prefix = "[waveform]"
@@ -156,20 +157,24 @@ func (wp *WaveformPlot) updateViewData() {
 		viewSampleCount := sampleCutIndex.Size()
 
 		simpleCut := func() {
-			wp.sampleArrayView.X = wp.sampleArray.X[sampleCutIndex.Start:sampleCutIndex.End]
-			wp.sampleArrayView.Y = wp.sampleArray.Y[sampleCutIndex.Start:sampleCutIndex.End]
+			sampleX := wp.sampleArray.X[sampleCutIndex.Start:sampleCutIndex.End]
+			sampleY := wp.sampleArray.Y[sampleCutIndex.Start:sampleCutIndex.End]
+			copy(wp.sampleArrayView.X, sampleX)
+			copy(wp.sampleArrayView.Y, sampleY)
 		}
 
 		if realSampleCount > maxSampleCount && viewSampleCount > maxSampleCount {
 			// 다운샘플링
-			simpleCut()
-			sampleArrayViewX, sampleArrayViewY, err := dsp.LTTB(
+			sampleArrayViewX, sampleArrayViewY, err := dsp.LTTB_Buffer(
+				wp.sampleArray.X[sampleCutIndex.Start:sampleCutIndex.End],
+				wp.sampleArray.Y[sampleCutIndex.Start:sampleCutIndex.End],
 				wp.sampleArrayView.X,
 				wp.sampleArrayView.Y,
 				maxSampleCount,
 			)
 			if err != nil {
 				logger.Errorf("다운샘플링 오류 (err=%v)", err)
+				simpleCut()
 			} else {
 				wp.sampleArrayView.X = sampleArrayViewX
 				wp.sampleArrayView.Y = sampleArrayViewY

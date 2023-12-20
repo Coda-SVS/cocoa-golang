@@ -201,6 +201,7 @@ func (p *Plot) eventHandler_AudioStreamChanged() {
 				p.isFitRequest = true
 			case audio.EnumAudioStreamClosed:
 				plotInstance.axisXLimitMax = DefaultAxisXLimitMax
+				imgui.PlotBustPlotCache()
 			}
 		}
 	}()

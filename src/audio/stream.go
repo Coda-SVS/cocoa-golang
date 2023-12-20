@@ -1,6 +1,8 @@
 package audio
 
 import (
+	"runtime"
+
 	"github.com/Kor-SVS/cocoa/src/audio/dsp"
 	"github.com/Kor-SVS/cocoa/src/util"
 	"github.com/gen2brain/malgo"
@@ -129,5 +131,6 @@ func disposeStream() {
 		audioStream = nil
 		audioBuffer = nil
 		audioStreamBroker.Publish(EnumAudioStreamClosed)
+		runtime.GC()
 	}
 }

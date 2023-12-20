@@ -20,8 +20,40 @@ func LTTB(x []float64, y []float64, threshold int) ([]float64, []float64, error)
 		return x, y, nil // Nothing to do
 	}
 
-	sampledX := make([]float64, 0, threshold)
-	sampledY := make([]float64, 0, threshold)
+	sampledX, sampledY, err := LTTB_Buffer(x, y, nil, nil, threshold)
+
+	return sampledX, sampledY, err
+}
+
+// LTTB down-samples the data to contain only threshold number of points that
+// have the same visual shape as the original data
+// (With Output Buffer)
+func LTTB_Buffer(x, y, outx, outy []float64, threshold int) ([]float64, []float64, error) {
+	if threshold < 3 {
+		threshold = 3
+	}
+
+	if len(x) != len(y) {
+		return nil, nil, fmt.Errorf("LTTB data mismatch Error! len(x) != len(y): x length is %v, y length is %v", len(x), len(y))
+	}
+
+	if threshold >= len(y) {
+		return x, y, nil // Nothing to do
+	}
+
+	var sampledX []float64
+	if cap(outx) < threshold {
+		sampledX = make([]float64, 0, threshold)
+	} else {
+		sampledX = outx[0:0]
+	}
+
+	var sampledY []float64
+	if cap(outy) < threshold {
+		sampledY = make([]float64, 0, threshold)
+	} else {
+		sampledY = outy[0:0]
+	}
 
 	// Bucket size. Leave room for start and end data points
 	every := float64(len(y)-2) / float64(threshold-2)
