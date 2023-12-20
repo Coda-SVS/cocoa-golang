@@ -39,7 +39,7 @@ func NewPlot() *Plot {
 		logOption.Prefix = "[plot]"
 		plotLogger = logger.NewSimpleLogger(logOption)
 
-		plotLogger.Trace("plot init...")
+		plotLogger.Trace("Plot init...")
 	})
 
 	plotInstance = &Plot{}

@@ -80,7 +80,7 @@ func GetWaveformPlot() *WaveformPlot {
 		logOption.Prefix = "[waveform]"
 		waveformPlotInstance.logger = plotLogger.NewSimpleLogger(logOption)
 
-		waveformPlotInstance.logger.Trace("waveform init...")
+		waveformPlotInstance.logger.Trace("Waveform Plot init...")
 
 		waveformPlotInstance.eventHandler_AudioStreamChanged()
 	})

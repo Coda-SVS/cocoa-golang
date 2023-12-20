@@ -18,7 +18,7 @@ func init() {
 	logOption.Prefix = "[resource]"
 	logger = log.RootLogger().NewSimpleLogger(logOption)
 
-	logger.Trace("resource init...")
+	logger.Trace("Resource init...")
 }
 
 func GetResourceFS(path string) fs.FS {
