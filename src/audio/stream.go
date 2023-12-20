@@ -19,7 +19,7 @@ var (
 var (
 	audioStream             *AudioStream                // 오디오 데이터 스트림
 	bufferCallbackFuncArray []func(buffer [][2]float64) // 오디오 버퍼 접근 함수 콜백
-	audioBuffer             [][2]float64                // 오디오 버퍼
+	audioBuffer             [][2]float64                // 오디오 버퍼 (재생)
 )
 
 func init() {
@@ -66,18 +66,24 @@ func GetAllSampleData() [][2]float64 {
 	audioMutex.Lock()
 	defer audioMutex.Unlock()
 
+	buf := make([][2]float64, audioStream.Len())
+
+	audioStreamReadMutex.Lock()
 	pos := audioStream.Position()
 	audioStream.Seek(0)
 
-	buf := make([][2]float64, audioStream.Len())
 	audioStream.Stream(buf)
 
 	audioStream.Seek(pos)
+	audioStreamReadMutex.Unlock()
 
 	return buf
 }
 
 func readAudioStream(outBuffer []byte, frameCount int) int {
+	audioStreamReadMutex.Lock()
+	defer audioStreamReadMutex.Unlock()
+
 	if audioStream == nil {
 		return 0
 	}
