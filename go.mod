@@ -1,6 +1,6 @@
 module github.com/Kor-SVS/cocoa
 
-go 1.21.3
+go 1.21.5
 
 require (
 	github.com/AllenDang/cimgui-go v0.0.0-20231009021832-f9856eb4a9a7
@@ -13,6 +13,7 @@ require (
 	github.com/spf13/viper v1.17.0
 	github.com/sqweek/dialog v0.0.0-20220809060634-e981b270ebbf
 	golang.org/x/text v0.14.0
+	gonum.org/v1/gonum v0.14.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
