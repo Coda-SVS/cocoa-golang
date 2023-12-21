@@ -1,6 +1,8 @@
 package util
 
 type PlotDrawEndEventArgs struct {
-	PlotPointStart float64
-	PlotPointEnd   float64
+	PlotPixelXStart float64
+	PlotPixelXEnd   float64
+	PlotPointStart  float64
+	PlotPointEnd    float64
 }

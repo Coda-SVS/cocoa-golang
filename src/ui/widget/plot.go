@@ -18,9 +18,10 @@ var (
 )
 
 type Plot struct {
-	logger      *log.Logger
-	plotWidgets map[string]*imguiw.PlotWidget
-	wg          *sync.WaitGroup
+	logger           *log.Logger
+	plotWidgets      map[string]*imguiw.PlotWidget
+	plotWidgetZIndex []string
+	wg               *sync.WaitGroup
 
 	isFitRequest  bool
 	axisXLimitMax float64
@@ -45,6 +46,7 @@ func NewPlot() *Plot {
 	plotInstance = &Plot{}
 	plotInstance.logger = plotLogger
 	plotInstance.plotWidgets = make(map[string]*imguiw.PlotWidget)
+	plotInstance.plotWidgetZIndex = make([]string, 0)
 	plotInstance.wg = &sync.WaitGroup{}
 
 	plotInstance.eventHandler_AudioStreamChanged()
@@ -59,6 +61,7 @@ func (p *Plot) AddPlot(plotWidget imguiw.PlotWidget) {
 	}
 
 	p.plotWidgets[plotWidget.Title()] = &plotWidget
+	plotInstance.plotWidgetZIndex = append(plotInstance.plotWidgetZIndex, plotWidget.Title())
 }
 
 func (p *Plot) RemoveDisposedPlotData() {
@@ -115,7 +118,8 @@ func (p *Plot) View() {
 
 		imgui.PlotSetupLock()
 
-		for _, dataPlot := range p.plotWidgets {
+		for _, dataPlotKey := range p.plotWidgetZIndex {
+			dataPlot := p.plotWidgets[dataPlotKey]
 			(*dataPlot).Plot()
 		}
 
@@ -133,8 +137,10 @@ func (p *Plot) View() {
 		plotPointStart := imgui.PlotPixelsToPlotFloatV(plotPos.X, plotPos.Y, imgui.AxisX1, imgui.AxisY1).X
 		plotPointEnd := imgui.PlotPixelsToPlotFloatV(plotEndSize.X, plotEndSize.Y, imgui.AxisX1, imgui.AxisY1).X
 		plotDrawEndEventArgs := util.PlotDrawEndEventArgs{
-			PlotPointStart: plotPointStart,
-			PlotPointEnd:   plotPointEnd,
+			PlotPixelXStart: float64(plotPos.X),
+			PlotPixelXEnd:   float64(plotEndSize.X),
+			PlotPointStart:  plotPointStart,
+			PlotPointEnd:    plotPointEnd,
 		}
 
 		for _, dataPlot := range p.plotWidgets {

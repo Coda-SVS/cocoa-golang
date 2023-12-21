@@ -32,6 +32,7 @@ func NewMainWindow() (window *MainWindow) {
 	}
 
 	window.plotWidget = widget.NewPlot()
+	window.plotWidget.AddPlot(widget.GetSpectrogramPlot())
 	window.plotWidget.AddPlot(widget.GetWaveformPlot())
 
 	return window
