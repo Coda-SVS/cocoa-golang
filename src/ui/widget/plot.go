@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -9,19 +10,32 @@ import (
 	"github.com/Kor-SVS/cocoa/src/log"
 	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
 	"github.com/Kor-SVS/cocoa/src/util"
+	"github.com/sasha-s/go-deadlock"
+	"github.com/zyedidia/generic/list"
 )
 
 var (
-	plotOnce     sync.Once
-	plotInstance *Plot
-	plotLogger   *log.Logger
+	plotOnce   sync.Once
+	plotLogger *log.Logger
 )
 
+type SubPlot struct {
+	dataPlot imguiw.PlotWidget
+	ratio    float32
+}
+
+func NewSubPlot(dataPlot imguiw.PlotWidget) *SubPlot {
+	return &SubPlot{
+		dataPlot: dataPlot,
+		ratio:    1.0,
+	}
+}
+
 type Plot struct {
-	logger           *log.Logger
-	plotWidgets      map[string]*imguiw.PlotWidget
-	plotWidgetZIndex []string
-	wg               *sync.WaitGroup
+	logger    *log.Logger
+	dataPlots *list.List[*SubPlot]
+	wg        *sync.WaitGroup
+	mtx       *deadlock.Mutex
 
 	isFitRequest  bool
 	axisXLimitMax float64
@@ -32,6 +46,9 @@ type Plot struct {
 	audioStreamPos_out_hovered bool
 	audioStreamPos_held        bool
 	audioStreamPos_IsPaused    bool
+
+	// temp state
+	row_ratios []float32
 }
 
 func NewPlot() *Plot {
@@ -43,116 +60,138 @@ func NewPlot() *Plot {
 		plotLogger.Trace("Plot init...")
 	})
 
-	plotInstance = &Plot{}
-	plotInstance.logger = plotLogger
-	plotInstance.plotWidgets = make(map[string]*imguiw.PlotWidget)
-	plotInstance.plotWidgetZIndex = make([]string, 0)
-	plotInstance.wg = &sync.WaitGroup{}
+	p := &Plot{}
+	p.logger = plotLogger
+	p.dataPlots = list.New[*SubPlot]()
+	p.wg = &sync.WaitGroup{}
+	p.mtx = &deadlock.Mutex{}
+	p.row_ratios = make([]float32, 0)
 
-	plotInstance.eventHandler_AudioStreamChanged()
-	plotInstance.axisXLimitMax = DefaultAxisXLimitMax
+	p.eventHandler_AudioStreamChanged()
+	p.axisXLimitMax = DefaultAxisXLimitMax
 
-	return plotInstance
+	return p
 }
 
-func (p *Plot) AddPlot(plotWidget imguiw.PlotWidget) {
-	if plotWidget == nil {
-		return
-	}
+func (p *Plot) EditDataPlotList(fn func(*list.List[*SubPlot])) {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
 
-	p.plotWidgets[plotWidget.Title()] = &plotWidget
-	plotInstance.plotWidgetZIndex = append(plotInstance.plotWidgetZIndex, plotWidget.Title())
-}
-
-func (p *Plot) RemoveDisposedPlotData() {
-	if len(p.plotWidgets) == 0 {
-		return
-	}
-
-	for titleKey, plotDataValue := range p.plotWidgets {
-		if (*plotDataValue).IsDisposed() {
-			delete(p.plotWidgets, titleKey)
-		}
-	}
+	fn(p.dataPlots)
 }
 
 func (p *Plot) View() {
-	p.RemoveDisposedPlotData()
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
 
-	if len(p.plotWidgets) == 0 {
+	firstSubPlotNode := p.dataPlots.Front
+	if firstSubPlotNode == nil {
 		return
 	}
 
-	if imgui.PlotBeginPlotV(
-		imguiw.T("Plot"),
+	// 서브 플롯 데이터 준비
+	p.row_ratios = p.row_ratios[0:0]
+	subPlotCount := 0
+	for dpn := firstSubPlotNode; dpn != nil; dpn = dpn.Next {
+		subPlot := dpn.Value
+		subPlotCount++
+		p.row_ratios = append(p.row_ratios, subPlot.ratio)
+		p.wg.Add(1)
+		go func(pw imguiw.PlotWidget) {
+			defer p.wg.Done()
+			pw.UpdateData()
+		}(subPlot.dataPlot)
+	}
+	p.wg.Wait()
+
+	if imgui.PlotBeginSubplotsV(
+		imguiw.RS("SubPlot##widget"),
+		int32(subPlotCount),
+		1,
 		imgui.Vec2{X: -1, Y: -1},
-		imgui.PlotFlagsNoLegend|imgui.PlotFlagsNoTitle|imgui.PlotFlagsNoMenus|imgui.PlotFlagsNoMouseText,
+		imgui.PlotSubplotFlagsLinkCols|imgui.PlotSubplotFlagsNoLegend|imgui.PlotSubplotFlagsNoTitle|imgui.PlotSubplotFlagsNoMenus,
+		&p.row_ratios,
+		nil,
 	) {
-		for _, dataPlot := range p.plotWidgets {
-			p.wg.Add(1)
-			go func(pw *imguiw.PlotWidget) {
-				defer p.wg.Done()
-				(*pw).UpdateData()
-			}(dataPlot)
+		var plotDrawEndEventArgs *util.PlotDrawEndEventArgs
+		axisX1Flags := imgui.PlotAxisFlagsNoLabel | imgui.PlotAxisFlagsNoTickLabels
+
+		col := -1
+		for dpn := firstSubPlotNode; dpn != nil; dpn = dpn.Next {
+			col++
+			subPlot := dpn.Value
+			subPlot.ratio = p.row_ratios[col]
+			dataPlot := subPlot.dataPlot
+
+			if imgui.PlotBeginPlotV(
+				imguiw.RS(fmt.Sprintf("Plot##%v", col)),
+				imgui.Vec2{X: -1, Y: -1},
+				imgui.PlotFlagsNoLegend|imgui.PlotFlagsNoTitle|imgui.PlotFlagsNoMenus|imgui.PlotFlagsNoMouseText,
+			) {
+
+				if col == subPlotCount-1 {
+					axisX1Flags &^= imgui.PlotAxisFlagsNoTickLabels
+				}
+				imgui.PlotSetupAxisV(
+					imgui.AxisX1,
+					"PlotX",
+					imgui.PlotAxisFlags(axisX1Flags),
+				)
+				imgui.PlotSetupAxisV(
+					imgui.AxisY1,
+					"PlotY",
+					imgui.PlotAxisFlags(imgui.PlotAxisFlagsLock|imgui.PlotAxisFlagsNoTickLabels|imgui.PlotAxisFlagsNoGridLines|imgui.PlotAxisFlagsNoLabel),
+				)
+
+				imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, p.axisXLimitMax)
+				imgui.PlotSetupAxisLimitsV(imgui.AxisY1, -0.5, 0.5, imgui.PlotCondAlways)
+
+				if p.isFitRequest {
+					imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, p.axisXLimitMax, imgui.PlotCondAlways)
+					p.isFitRequest = false
+				}
+
+				imgui.PlotSetupLock()
+
+				dataPlot.Plot()
+
+				p.audioStreamPosDragLine()
+
+				if imgui.PlotIsPlotHovered() && imgui.IsMouseDoubleClicked(imgui.MouseButtonLeft) {
+					p.isFitRequest = true
+				}
+
+				if plotDrawEndEventArgs == nil {
+					plotSize := imgui.PlotGetPlotSize()
+					plotPos := imgui.PlotGetPlotPos()
+
+					plotEndSize := plotSize.Add(plotPos)
+
+					plotPointStart := imgui.PlotPixelsToPlotFloatV(plotPos.X, plotPos.Y, imgui.AxisX1, imgui.AxisY1).X
+					plotPointEnd := imgui.PlotPixelsToPlotFloatV(plotEndSize.X, plotEndSize.Y, imgui.AxisX1, imgui.AxisY1).X
+					plotDrawEndEventArgs = &util.PlotDrawEndEventArgs{
+						PlotPixelXStart: float64(plotPos.X),
+						PlotPixelXEnd:   float64(plotEndSize.X),
+						PlotPointStart:  plotPointStart,
+						PlotPointEnd:    plotPointEnd,
+					}
+				}
+
+				imgui.PlotEndPlot()
+			}
 		}
-		p.wg.Wait()
 
-		imgui.PlotSetupAxisV(
-			imgui.AxisX1,
-			"PlotX",
-			imgui.PlotAxisFlags(imgui.PlotAxisFlagsNoLabel),
-		)
-		imgui.PlotSetupAxisV(
-			imgui.AxisY1,
-			"PlotY",
-			imgui.PlotAxisFlags(imgui.PlotAxisFlagsLock|imgui.PlotAxisFlagsNoTickLabels|imgui.PlotAxisFlagsNoGridLines|imgui.PlotAxisFlagsNoLabel),
-		)
-
-		imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, p.axisXLimitMax)
-		imgui.PlotSetupAxisLimitsV(imgui.AxisY1, -0.5, 0.5, imgui.PlotCondAlways)
-
-		if p.isFitRequest {
-			imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, p.axisXLimitMax, imgui.PlotCondAlways)
-			p.isFitRequest = false
+		if plotDrawEndEventArgs != nil {
+			for dpn := firstSubPlotNode; dpn != nil; dpn = dpn.Next {
+				p.wg.Add(1)
+				go func(pw imguiw.PlotWidget) {
+					defer p.wg.Done()
+					pw.EventHandler(*plotDrawEndEventArgs)
+				}(dpn.Value.dataPlot)
+			}
+			p.wg.Wait()
 		}
-
-		imgui.PlotSetupLock()
-
-		for _, dataPlotKey := range p.plotWidgetZIndex {
-			dataPlot := p.plotWidgets[dataPlotKey]
-			(*dataPlot).Plot()
-		}
-
-		p.audioStreamPosDragLine()
-
-		if imgui.PlotIsPlotHovered() && imgui.IsMouseDoubleClicked(imgui.MouseButtonLeft) {
-			p.isFitRequest = true
-		}
-
-		plotSize := imgui.PlotGetPlotSize()
-		plotPos := imgui.PlotGetPlotPos()
-
-		plotEndSize := plotSize.Add(plotPos)
-
-		plotPointStart := imgui.PlotPixelsToPlotFloatV(plotPos.X, plotPos.Y, imgui.AxisX1, imgui.AxisY1).X
-		plotPointEnd := imgui.PlotPixelsToPlotFloatV(plotEndSize.X, plotEndSize.Y, imgui.AxisX1, imgui.AxisY1).X
-		plotDrawEndEventArgs := util.PlotDrawEndEventArgs{
-			PlotPixelXStart: float64(plotPos.X),
-			PlotPixelXEnd:   float64(plotEndSize.X),
-			PlotPointStart:  plotPointStart,
-			PlotPointEnd:    plotPointEnd,
-		}
-
-		for _, dataPlot := range p.plotWidgets {
-			p.wg.Add(1)
-			go func(pw *imguiw.PlotWidget) {
-				defer p.wg.Done()
-				(*pw).EventHandler(plotDrawEndEventArgs)
-			}(dataPlot)
-		}
-		p.wg.Wait()
-
-		imgui.PlotEndPlot()
+		imgui.PlotEndSubplots()
 	}
 }
 
@@ -202,11 +241,11 @@ func (p *Plot) eventHandler_AudioStreamChanged() {
 			case audio.EnumAudioStreamOpen:
 				p.axisXLimitMax = audio.Duration().Seconds()
 				if p.axisXLimitMax == 0 {
-					plotInstance.axisXLimitMax = DefaultAxisXLimitMax
+					p.axisXLimitMax = DefaultAxisXLimitMax
 				}
 				p.isFitRequest = true
 			case audio.EnumAudioStreamClosed:
-				plotInstance.axisXLimitMax = DefaultAxisXLimitMax
+				p.axisXLimitMax = DefaultAxisXLimitMax
 				imgui.PlotBustPlotCache()
 			}
 		}

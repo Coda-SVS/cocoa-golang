@@ -12,6 +12,7 @@ require (
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.17.0
 	github.com/sqweek/dialog v0.0.0-20220809060634-e981b270ebbf
+	github.com/zyedidia/generic v1.2.1
 	golang.org/x/text v0.14.0
 	gonum.org/v1/gonum v0.14.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -33,6 +34,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
