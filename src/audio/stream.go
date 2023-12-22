@@ -40,12 +40,12 @@ func Open(fpath string) {
 
 	decoder, format, err := GetDecoder(fpath)
 	if err != nil {
-		logger.Errorf("오디오 파일을 열지 못했습니다. err=%v", err)
+		logger.Errorf("오디오 파일을 열지 못했습니다. (err=%v)", err)
 		return
 	}
 
 	if decodeErr := decoder.Err(); decodeErr != nil {
-		logger.Errorf("디코드 오류 발생 decodeErr=%v", decodeErr)
+		logger.Errorf("디코드 오류 발생 (decodeErr=%v)", decodeErr)
 		return
 	}
 
@@ -63,6 +63,14 @@ func Open(fpath string) {
 	deviceConfig.SampleRate = uint32(audioStream.Format.SampleRate)
 
 	initDevice(deviceConfig)
+
+	logger.Infof("오디오 로드 완료 (fpath=%v)", fpath)
+	logger.Infof("오디오 정보 (format={sr=%v, n_channels=%v, precision=%v}, sampleCount=%v)",
+		format.SampleRate,
+		format.NumChannels,
+		format.Precision,
+		audioStream.Len(),
+	)
 
 	audioStreamBroker.Publish(EnumAudioStreamOpen)
 }
