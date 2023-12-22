@@ -6,6 +6,7 @@ import (
 	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
 	"github.com/Kor-SVS/cocoa/src/ui/widget"
 	"github.com/sqweek/dialog"
+	"github.com/zyedidia/generic/list"
 )
 
 type MainWindow struct {
@@ -32,8 +33,10 @@ func NewMainWindow() (window *MainWindow) {
 	}
 
 	window.plotWidget = widget.NewPlot()
-	window.plotWidget.AddPlot(widget.GetSpectrogramPlot())
-	window.plotWidget.AddPlot(widget.GetWaveformPlot())
+	window.plotWidget.EditDataPlotList(func(l *list.List[*widget.SubPlot]) {
+		l.PushBack(widget.NewSubPlot(widget.GetWaveformPlot()))
+		l.PushBack(widget.NewSubPlot(widget.GetSpectrogramPlot()))
+	})
 
 	return window
 }
