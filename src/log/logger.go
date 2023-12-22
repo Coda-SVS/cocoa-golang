@@ -1,5 +1,7 @@
 package log
 
+// TODO: 비동기 로깅 구현
+
 type Logger struct {
 	option    LoggerOption
 	parent    *Logger
