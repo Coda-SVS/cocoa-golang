@@ -42,6 +42,10 @@ type SpectrogramPlot struct {
 	sampleCutIndexOld *util.Index
 
 	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
+
+	// temp state
+	subSampleArray []float64
+	freqs          []complex128
 }
 
 // 싱글톤
@@ -108,6 +112,8 @@ func (sp *SpectrogramPlot) fftInit(n int) {
 
 	sp.sampleRate = int(audio.StreamFormat().SampleRate)
 	sp.n_bin = n
+	sp.subSampleArray = make([]float64, sp.n_bin*2)
+	sp.freqs = make([]complex128, len(sp.subSampleArray)/2+1)
 
 	spectrogramPlotInstance.logger.Infof("FFT init (n_fft: %v)", sp.fft.Len())
 }
@@ -147,7 +153,7 @@ func (sp *SpectrogramPlot) updateViewData() {
 
 		samples := sp.sampleArray[sampleCutIndex.Start:sampleCutIndex.End]
 
-		heatmapWidth := 768 // resolution param
+		heatmapWidth := sp.n_bin * 2 // resolution param
 		freqArraySize := heatmapWidth * (sp.n_bin * 2)
 		if cap(sp.freqArray) < freqArraySize {
 			sp.freqArray = make([]float64, freqArraySize)
@@ -156,28 +162,26 @@ func (sp *SpectrogramPlot) updateViewData() {
 		}
 		sp.n_freq = heatmapWidth
 
-		sub := make([]float64, sp.n_bin*2)
-		freqs := make([]complex128, len(sub)/2+1)
 		for x := 1; x < heatmapWidth; x++ {
 			n0 := int64(util.MapRange(float64(x-1), 0, float64(heatmapWidth), 0, float64(len(samples))))
 			n1 := int64(util.MapRange(float64(x-0), 0, float64(heatmapWidth), 0, float64(len(samples))))
 			c := n0 + (n1-n0)/2
 
-			for i := 0; i < len(sub); i += 1 {
+			for i := 0; i < len(sp.subSampleArray); i += 1 {
 				s := 0.0
 				n := int(c) - sp.n_bin + int(i)
 				if n >= 0 && n < len(samples) {
 					s = samples[n]
 				}
-				sub[i] = s
+				sp.subSampleArray[i] = s
 			}
 
-			sub = window.Blackman(sub)
+			sp.subSampleArray = window.Blackman(sp.subSampleArray)
 
-			freqs := sp.fft.Coefficients(freqs, sub)
+			sp.freqs = sp.fft.Coefficients(sp.freqs, sp.subSampleArray)
 
-			for y := 0; y < len(freqs); y++ {
-				sp.freqArray[y*heatmapWidth+x] = cmplx.Abs(freqs[y])
+			for y := 0; y < len(sp.freqs); y++ {
+				sp.freqArray[y*heatmapWidth+x] = cmplx.Abs(sp.freqs[y])
 			}
 		}
 
