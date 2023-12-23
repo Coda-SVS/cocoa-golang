@@ -8,6 +8,7 @@ require (
 	github.com/eduardolat/goeasyi18n v1.3.0
 	github.com/gen2brain/malgo v0.11.10
 	github.com/gopxl/beep v1.3.0
+	github.com/panjf2000/ants/v2 v2.9.0
 	github.com/sasha-s/go-deadlock v0.3.1
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.17.0
@@ -34,7 +35,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

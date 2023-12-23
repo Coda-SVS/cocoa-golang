@@ -65,31 +65,33 @@ type WaveformPlot struct {
 
 // 싱글톤
 func GetWaveformPlot() *WaveformPlot {
+	var wp *WaveformPlot
 	waveformPlotOnce.Do(func() {
-		waveformPlotInstance = &WaveformPlot{
+		wp = &WaveformPlot{
 			title:               "Wavefrom Data",
 			isShouldDataRefresh: true,
 			isCleard:            true,
 			sampleArray:         NewWaveformPlotData(0, 0),
 			sampleCutIndex:      util.NewIndex(0, 0),
 			sampleCutIndexOld:   util.NewIndex(0, 0),
-			maxSampleCount:      50000,
+			maxSampleCount:      DefaultMaxSampleCount,
 		}
 
-		waveformPlotInstance.sampleArrayView = NewWaveformPlotData(0, waveformPlotInstance.maxSampleCount)
+		wp.sampleArrayView = NewWaveformPlotData(0, wp.maxSampleCount)
 		if audio.IsAudioLoaded() {
-			waveformPlotInstance.sampleRate = int(audio.StreamFormat().SampleRate)
+			wp.sampleRate = int(audio.StreamFormat().SampleRate)
 		}
 
 		logOption := log.NewLoggerOption()
 		logOption.Prefix = "[waveform]"
-		waveformPlotInstance.logger = plotLogger.NewSimpleLogger(logOption)
+		wp.logger = plotLogger.NewSimpleLogger(logOption)
 
-		waveformPlotInstance.logger.Trace("Waveform Plot init...")
+		wp.logger.Trace("Waveform Plot init...")
 
-		waveformPlotInstance.eventHandler_AudioStreamChanged()
+		wp.eventHandler_AudioStreamChanged()
 	})
 
+	waveformPlotInstance = wp
 	return waveformPlotInstance
 }
 

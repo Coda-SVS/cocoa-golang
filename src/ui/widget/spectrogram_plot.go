@@ -1,16 +1,14 @@
 package widget
 
 import (
-	"math/cmplx"
 	"sync"
 
 	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/audio"
+	"github.com/Kor-SVS/cocoa/src/audio/dsp"
 	"github.com/Kor-SVS/cocoa/src/log"
 	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
 	"github.com/Kor-SVS/cocoa/src/util"
-	"gonum.org/v1/gonum/dsp/fourier"
-	"gonum.org/v1/gonum/dsp/window"
 )
 
 var (
@@ -28,49 +26,46 @@ type SpectrogramPlot struct {
 	isShouldDataRefresh bool
 	isCleard            bool
 
-	fft *fourier.FFT
-
-	freqArray  []float64
-	sampleRate int // sampling rate
-	n_freq     int // FFT frequency count
-	n_bin      int // spectrogram bin count
-	ferq_min   float64
-	ferq_max   float64
+	spectrogram  *dsp.Spectrogram
+	freqArray    []float64
+	sampleRate   int // sampling rate
+	n_bin        int // spectrogram bin count
+	ferq_min     float64
+	ferq_max     float64
+	maxWidthSize int
 
 	sampleArray       []float64
 	sampleCutIndex    *util.Index
 	sampleCutIndexOld *util.Index
 
 	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
-
-	// temp state
-	subSampleArray []float64
-	freqs          []complex128
 }
 
 // 싱글톤
 func GetSpectrogramPlot() *SpectrogramPlot {
+	var sp *SpectrogramPlot
 	spectrogramPlotOnce.Do(func() {
-		spectrogramPlotInstance = &SpectrogramPlot{
+		sp = &SpectrogramPlot{
 			title:               "Spectrogram Data",
 			isShouldDataRefresh: true,
-			freqArray:           make([]float64, 0),
-			sampleArray:         make([]float64, 0),
+			spectrogram:         dsp.NewSpectrogram(),
 			sampleCutIndex:      util.NewIndex(0, 0),
 			sampleCutIndexOld:   util.NewIndex(0, 0),
 			ferq_min:            0,
 			ferq_max:            1,
+			maxWidthSize:        1024,
 		}
 
 		logOption := log.NewLoggerOption()
 		logOption.Prefix = "[spectrogram]"
-		spectrogramPlotInstance.logger = plotLogger.NewSimpleLogger(logOption)
+		sp.logger = plotLogger.NewSimpleLogger(logOption)
 
-		spectrogramPlotInstance.logger.Trace("Spectrogram Plot init...")
+		sp.logger.Trace("Spectrogram Plot init...")
 
-		spectrogramPlotInstance.eventHandler_AudioStreamChanged()
+		sp.eventHandler_AudioStreamChanged()
 	})
 
+	spectrogramPlotInstance = sp
 	return spectrogramPlotInstance
 }
 
@@ -79,51 +74,45 @@ func (sp *SpectrogramPlot) Plot() {
 		return
 	}
 
-	if len(sp.freqArray) != 0 {
-		imgui.PlotPushColormapPlotColormap(imgui.PlotColormapViridis)
-		imgui.PlotPlotHeatmapdoublePtrV(
-			sp.title,
-			&sp.freqArray,
-			int32(sp.n_bin),
-			int32(sp.n_freq),
-			sp.ferq_min,
-			sp.ferq_max,
-			"",
-			imgui.NewPlotPoint(sp.plotDrawEndEventArgs.PlotPointStart, 0.5),
-			imgui.NewPlotPoint(sp.plotDrawEndEventArgs.PlotPointEnd, -0.5),
-			imgui.PlotHeatmapFlagsNone,
-		)
-		imgui.PlotPopColormap()
-	}
-
 	if sp.plotDrawEndEventArgs != nil {
+		if len(sp.freqArray) != 0 {
+			imgui.PlotPushColormapPlotColormap(imgui.PlotColormapViridis)
+			imgui.PlotPlotHeatmapdoublePtrV(
+				sp.title,
+				&sp.freqArray,
+				int32(sp.n_bin),
+				int32(sp.maxWidthSize),
+				sp.ferq_min,
+				sp.ferq_max,
+				"",
+				imgui.NewPlotPoint(sp.plotDrawEndEventArgs.PlotPointStart, 0.5),
+				imgui.NewPlotPoint(sp.plotDrawEndEventArgs.PlotPointEnd, -0.5),
+				imgui.PlotHeatmapFlagsNone,
+			)
+			imgui.PlotPopColormap()
+		}
+
 		plotDrawEndEventArgs := *sp.plotDrawEndEventArgs
 		sp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sp.sampleRate)))
 		sp.sampleCutIndex.End = min(len(sp.sampleArray), int(plotDrawEndEventArgs.PlotPointEnd*float64(sp.sampleRate)))
 	}
 }
 
-func (sp *SpectrogramPlot) fftInit(n int) {
-	if sp.fft == nil {
-		sp.fft = fourier.NewFFT(n * 2)
-	} else {
-		sp.fft.Reset(n * 2)
-	}
-
-	sp.sampleRate = int(audio.StreamFormat().SampleRate)
-	sp.n_bin = n
-	sp.subSampleArray = make([]float64, sp.n_bin*2)
-	sp.freqs = make([]complex128, len(sp.subSampleArray)/2+1)
-
-	spectrogramPlotInstance.logger.Infof("FFT init (n_fft: %v)", sp.fft.Len())
-}
-
 // 현재 오디오 스트림에서 데이터 불러오기
 func (sp *SpectrogramPlot) UpdateData() {
 	if sp.isShouldDataRefresh {
 		if audio.IsAudioLoaded() {
-			sp.fftInit(512) // n_fft param
+			sp.sampleRate = int(audio.StreamFormat().SampleRate)
 			sp.sampleArray = audio.GetMonoAllSampleData()
+			sp.spectrogram.SetSampleData(sp.sampleArray, sp.sampleRate)
+			sp.spectrogram.Coefficients() // caching
+
+			sp.n_bin = sp.spectrogram.NumBin()
+
+			freqArraySize := sp.maxWidthSize * sp.spectrogram.NumBin()
+			if len(sp.freqArray) != freqArraySize {
+				sp.freqArray = make([]float64, freqArraySize)
+			}
 
 			sp.isCleard = false
 			sp.isShouldDataRefresh = false
@@ -151,39 +140,20 @@ func (sp *SpectrogramPlot) updateViewData() {
 			sampleCutIndex.Start = sampleCutIndex.End - 1
 		}
 
-		samples := sp.sampleArray[sampleCutIndex.Start:sampleCutIndex.End]
-
-		heatmapWidth := sp.n_bin * 2 // resolution param
-		freqArraySize := heatmapWidth * (sp.n_bin * 2)
-		if cap(sp.freqArray) < freqArraySize {
-			sp.freqArray = make([]float64, freqArraySize)
-		} else {
-			sp.freqArray = sp.freqArray[:freqArraySize]
-		}
-		sp.n_freq = heatmapWidth
-
-		for x := 1; x < heatmapWidth; x++ {
-			n0 := int64(util.MapRange(float64(x-1), 0, float64(heatmapWidth), 0, float64(len(samples))))
-			n1 := int64(util.MapRange(float64(x-0), 0, float64(heatmapWidth), 0, float64(len(samples))))
-			c := n0 + (n1-n0)/2
-
-			for i := 0; i < len(sp.subSampleArray); i += 1 {
-				s := 0.0
-				n := int(c) - sp.n_bin + int(i)
-				if n >= 0 && n < len(samples) {
-					s = samples[n]
-				}
-				sp.subSampleArray[i] = s
-			}
-
-			sp.subSampleArray = window.Blackman(sp.subSampleArray)
-
-			sp.freqs = sp.fft.Coefficients(sp.freqs, sp.subSampleArray)
-
-			for y := 0; y < len(sp.freqs); y++ {
-				sp.freqArray[y*heatmapWidth+x] = cmplx.Abs(sp.freqs[y])
+		freqs, width, height := sp.spectrogram.Coefficients()
+		viewSampleSize := min(width, sampleCutIndex.End) - max(0, sampleCutIndex.Start)
+		for x := 0; x < sp.maxWidthSize; x++ {
+			mx := sampleCutIndex.Start + int(util.MapRange(float64(x), 0, float64(sp.maxWidthSize), 0, float64(viewSampleSize)))
+			for y := 0; y < height; y++ {
+				sp.freqArray[y*sp.maxWidthSize+x] = freqs[y*width+mx]
 			}
 		}
+
+		// TEST CODE
+		// freqs, width, height := sp.spectrogram.Coefficients()
+		// sp.freqArray = freqs
+		// sp.maxWidthSize = width
+		// sp.n_bin = height
 
 		sp.sampleCutIndexOld = &sampleCutIndex
 	}

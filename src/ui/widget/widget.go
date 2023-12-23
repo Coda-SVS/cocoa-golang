@@ -5,7 +5,8 @@ import (
 )
 
 const (
-	DefaultAxisXLimitMax = 30
+	DefaultMaxSampleCount = 50000
+	DefaultAxisXLimitMax  = 30
 )
 
 var (
