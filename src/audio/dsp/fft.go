@@ -109,7 +109,21 @@ func ParallelFFT(
 	freqArray = make([]float64, freqArraySize)
 	wg := &sync.WaitGroup{}
 
-	pool, err := ants.NewPoolWithFunc(runtime.NumCPU()*4, func(param any) {
+	subSampleArrayPool := &sync.Pool{
+		New: func() interface{} {
+			array := make([]float64, n_bin*2)
+			return &array
+		},
+	}
+
+	freqArrayPool := &sync.Pool{
+		New: func() interface{} {
+			array := make([]complex128, n_bin*2)
+			return &array
+		},
+	}
+
+	pool, err := ants.NewPoolWithFunc(runtime.NumCPU(), func(param any) {
 		defer wg.Done()
 		data := param.(fftData)
 
@@ -117,7 +131,7 @@ func ParallelFFT(
 		n1 := int64(util.MapRange(float64(data.xIdx), 0, float64(data.freqArrayWidth), 0, float64(len(data.samples))))
 		c := int(n0 + (n1-n0)/2)
 
-		subSampleArray := make([]float64, data.n_bin*2)
+		subSampleArray := *subSampleArrayPool.Get().(*[]float64)
 		for i := 0; i < len(subSampleArray); i++ {
 			s := 0.0
 			n := c - data.n_bin + int(i)
@@ -129,7 +143,7 @@ func ParallelFFT(
 
 		subSampleArray = data.windowFn(subSampleArray)
 
-		freqs := make([]complex128, data.n_bin*2)
+		freqs := *freqArrayPool.Get().(*[]complex128)
 		if isDFT {
 			dft(subSampleArray, freqs)
 		} else {
@@ -139,6 +153,9 @@ func ParallelFFT(
 		for y := 0; y < n_bin; y++ {
 			data.freqs[y*data.freqArrayWidth+(data.xIdx-1)] = cmplx.Abs(freqs[y])
 		}
+
+		subSampleArrayPool.Put(&subSampleArray)
+		freqArrayPool.Put(&freqs)
 	})
 	if err != nil {
 		panic(err)
