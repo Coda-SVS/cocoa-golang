@@ -6,6 +6,7 @@ require (
 	github.com/AllenDang/cimgui-go v0.0.0-20231009021832-f9856eb4a9a7
 	github.com/AllenDang/go-findfont v0.0.0-20200702051237-9f180485aeb8
 	github.com/eduardolat/goeasyi18n v1.3.0
+	github.com/fatih/color v1.14.1
 	github.com/gen2brain/malgo v0.11.10
 	github.com/gopxl/beep v1.3.0
 	github.com/panjf2000/ants/v2 v2.9.0
@@ -26,6 +27,8 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/icza/bitio v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mewkiz/flac v1.0.8 // indirect
 	github.com/mewkiz/pkg v0.0.0-20230226050401-4010bf0fec14 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

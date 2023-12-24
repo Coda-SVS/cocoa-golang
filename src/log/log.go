@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/Kor-SVS/cocoa/src/util"
+	"github.com/fatih/color"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -30,18 +31,34 @@ func init() {
 		Compress:   true, // disabled by default
 	}
 
-	infoWriter := io.MultiWriter(infoFileWriter, os.Stdout)
-	errorWriter := io.MultiWriter(infoFileWriter, errorFileWriter, os.Stderr)
+	infoFileLogWriter := infoFileWriter
+	errorFileLogWriter := io.MultiWriter(infoFileWriter, errorFileWriter)
+	infoConsoleLogWriter := os.Stdout
+	errorConsoleLogWriter := os.Stderr
 
-	loggerTrace := log.New(infoWriter, "[TRACE] ", log.Ldate|log.Ltime)
-	loggerInfo := log.New(infoWriter, "[INFO ] ", log.Ldate|log.Ltime)
-	loggerWarning := log.New(errorWriter, "[WARN ] ", log.Ldate|log.Ltime)
-	loggerError := log.New(errorWriter, "[ERROR] ", log.Ldate|log.Ltime)
+	fileLoggerTrace := log.New(infoFileLogWriter, "[TRACE] ", log.Ldate|log.Ltime)
+	fileLoggerInfo := log.New(infoFileLogWriter, "[INFO ] ", log.Ldate|log.Ltime)
+	fileLoggerWarning := log.New(errorFileLogWriter, "[WARN ] ", log.Ldate|log.Ltime)
+	fileLoggerError := log.New(errorFileLogWriter, "[ERROR] ", log.Ldate|log.Ltime)
+
+	ConsoleLoggerTrace := log.New(infoConsoleLogWriter, color.New(color.FgHiBlue).Sprint("[TRACE] "), log.Ldate|log.Ltime)
+	ConsoleLoggerInfo := log.New(infoConsoleLogWriter, color.New(color.FgHiGreen).Sprint("[INFO ] "), log.Ldate|log.Ltime)
+	ConsoleLoggerWarning := log.New(errorConsoleLogWriter, color.New(color.FgHiYellow).Sprint("[WARN ] "), log.Ldate|log.Ltime)
+	ConsoleLoggerError := log.New(errorConsoleLogWriter, color.New(color.FgHiRed).Sprint("[ERROR] "), log.Ldate|log.Ltime)
 
 	option := NewLoggerOption()
 	option.Prefix = "[root]"
 
-	logWriter := NewLogWriter(loggerTrace, loggerInfo, loggerWarning, loggerError)
+	logWriter := NewLogWriter(
+		fileLoggerTrace,
+		fileLoggerInfo,
+		fileLoggerWarning,
+		fileLoggerError,
+		ConsoleLoggerTrace,
+		ConsoleLoggerInfo,
+		ConsoleLoggerWarning,
+		ConsoleLoggerError,
+	)
 
 	rootLogger = newLogger(nil, option, logWriter)
 }

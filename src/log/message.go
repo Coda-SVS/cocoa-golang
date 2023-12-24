@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,16 +16,19 @@ type logBoxInternal struct {
 type LogBox struct {
 	logBoxInternal logBoxInternal
 	callerLocation string
+	goid           int
 	message        string
 }
 
 func NewLogBox() *LogBox {
-	return &LogBox{
+	lm := &LogBox{
 		logBoxInternal: logBoxInternal{
 			joinedPrefix: "",
 		},
 		message: "",
 	}
+	lm.AddGoID()
+	return lm
 }
 
 func (lm *LogBox) AddCallStack(skip int) bool {
@@ -52,14 +56,31 @@ func (lm *LogBox) AddCallStackFromError(err *util.ErrorW, callStackSkip int) boo
 	}
 }
 
+func (lm *LogBox) AddGoID() {
+	lm.goid = int(util.GetCurrentGoID())
+}
+
 func (lm *LogBox) Message() string {
 	return lm.message
 }
 
-func (lm *LogBox) BuildMessage() string {
-	if lm.callerLocation == "" {
-		return util.StringConcat(" ", lm.logBoxInternal.joinedPrefix, lm.message)
-	} else {
-		return util.StringConcat(" ", lm.callerLocation, lm.logBoxInternal.joinedPrefix, lm.message)
+func (lm *LogBox) BuildMessage(isConsole bool) (rMsg string) {
+	msgBuf := make([]string, 0, 3)
+
+	if lm.callerLocation != "" {
+		msgBuf = append(msgBuf, lm.callerLocation)
 	}
+
+	if lm.goid > 0 {
+		if isConsole {
+			msgBuf = append(msgBuf, util.GetColorForID(lm.goid).Sprintf("[grtn %v]", lm.goid))
+		} else {
+			msgBuf = append(msgBuf, fmt.Sprintf("[grtn %v]", lm.goid))
+		}
+	}
+
+	msgBuf = append(msgBuf, lm.logBoxInternal.joinedPrefix)
+	msgBuf = append(msgBuf, lm.message)
+
+	return util.StringConcat(" ", msgBuf...)
 }
