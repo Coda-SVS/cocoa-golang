@@ -1,6 +1,8 @@
 package dsp
 
 import (
+	"context"
+
 	"github.com/sasha-s/go-deadlock"
 	"gonum.org/v1/gonum/dsp/window"
 )
@@ -89,7 +91,7 @@ func (st *Spectrogram) burstCache() {
 	st.freqArray = nil
 }
 
-func (st *Spectrogram) Coefficients() ([]float64, int, int) {
+func (st *Spectrogram) Coefficients(ctx context.Context) ([]float64, int, int) {
 	st.mtx.Lock()
 	defer st.mtx.Unlock()
 
@@ -105,6 +107,7 @@ func (st *Spectrogram) Coefficients() ([]float64, int, int) {
 	st.freqArrayWidth = len(st.sampleArray)
 
 	st.freqArray = ParallelFFT(
+		ctx,
 		st.sampleArray,
 		st.freqArrayWidth,
 		st.n_bin,

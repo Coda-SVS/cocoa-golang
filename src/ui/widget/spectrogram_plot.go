@@ -1,6 +1,7 @@
 package widget
 
 import (
+	"context"
 	"sync"
 
 	imgui "github.com/AllenDang/cimgui-go"
@@ -37,6 +38,8 @@ type SpectrogramPlot struct {
 	sampleArray       []float64
 	sampleCutIndex    *util.Index
 	sampleCutIndexOld *util.Index
+
+	dataContext *context.Context
 
 	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
 }
@@ -101,11 +104,13 @@ func (sp *SpectrogramPlot) Plot() {
 // 현재 오디오 스트림에서 데이터 불러오기
 func (sp *SpectrogramPlot) UpdateData() {
 	if sp.isShouldDataRefresh {
+		// dataContext, cancel := context.WithCancel(context.Background())
+
 		if audio.IsAudioLoaded() {
 			sp.sampleRate = int(audio.StreamFormat().SampleRate)
 			sp.sampleArray = audio.GetMonoAllSampleData()
 			sp.spectrogram.SetSampleData(sp.sampleArray, sp.sampleRate)
-			sp.spectrogram.Coefficients() // caching
+			sp.spectrogram.Coefficients(context.TODO()) // caching
 
 			sp.n_bin = sp.spectrogram.NumBin()
 
@@ -140,7 +145,7 @@ func (sp *SpectrogramPlot) updateViewData() {
 			sampleCutIndex.Start = sampleCutIndex.End - 1
 		}
 
-		freqs, width, height := sp.spectrogram.Coefficients()
+		freqs, width, height := sp.spectrogram.Coefficients(context.TODO())
 		viewSampleSize := min(width, sampleCutIndex.End) - max(0, sampleCutIndex.Start)
 		for x := 0; x < sp.maxWidthSize; x++ {
 			mx := sampleCutIndex.Start + int(util.MapRange(float64(x), 0, float64(sp.maxWidthSize), 0, float64(viewSampleSize)))
