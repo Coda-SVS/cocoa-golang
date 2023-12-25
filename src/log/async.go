@@ -29,7 +29,7 @@ func init() {
 
 		box := NewLogBox(TRACE)
 		box.SetIsAsync(false)
-		box.message = "비동기 로그 처리 스레드 종료됨"
+		box.message = "로그 처리 스레드 종료됨"
 		box.AddCallStack(0)
 		RootLogger().Direct(box)
 	}()
