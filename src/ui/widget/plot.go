@@ -48,7 +48,8 @@ type Plot struct {
 	audioStreamPos_IsPaused    bool
 
 	// temp state
-	row_ratios []float32
+	row_ratios           []float32
+	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
 }
 
 func NewPlot() *Plot {
@@ -69,6 +70,8 @@ func NewPlot() *Plot {
 
 	p.eventHandler_AudioStreamChanged()
 	p.axisXLimitMax = DefaultAxisXLimitMax
+
+	p.plotDrawEndEventArgs = &util.PlotDrawEndEventArgs{}
 
 	return p
 }
@@ -128,10 +131,10 @@ func (p *Plot) View() {
 				imgui.Vec2{X: -1, Y: -1},
 				imgui.PlotFlagsNoLegend|imgui.PlotFlagsNoTitle|imgui.PlotFlagsNoMenus|imgui.PlotFlagsNoMouseText,
 			) {
-
 				if col == subPlotCount-1 {
 					axisX1Flags &^= imgui.PlotAxisFlagsNoTickLabels
 				}
+
 				imgui.PlotSetupAxisV(
 					imgui.AxisX1,
 					"PlotX",
@@ -169,12 +172,12 @@ func (p *Plot) View() {
 
 					plotPointStart := imgui.PlotPixelsToPlotFloatV(plotPos.X, plotPos.Y, imgui.AxisX1, imgui.AxisY1).X
 					plotPointEnd := imgui.PlotPixelsToPlotFloatV(plotEndSize.X, plotEndSize.Y, imgui.AxisX1, imgui.AxisY1).X
-					plotDrawEndEventArgs = &util.PlotDrawEndEventArgs{
-						PlotPixelXStart: float64(plotPos.X),
-						PlotPixelXEnd:   float64(plotEndSize.X),
-						PlotPointStart:  plotPointStart,
-						PlotPointEnd:    plotPointEnd,
-					}
+
+					plotDrawEndEventArgs = p.plotDrawEndEventArgs
+					plotDrawEndEventArgs.PlotPixelXStart = float64(plotPos.X)
+					plotDrawEndEventArgs.PlotPixelXEnd = float64(plotEndSize.X)
+					plotDrawEndEventArgs.PlotPointStart = plotPointStart
+					plotDrawEndEventArgs.PlotPointEnd = plotPointEnd
 				}
 
 				imgui.PlotEndPlot()
