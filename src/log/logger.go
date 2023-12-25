@@ -1,7 +1,5 @@
 package log
 
-// TODO: 비동기 로깅 구현
-
 type Logger struct {
 	option    LoggerOption
 	parent    *Logger
@@ -29,8 +27,33 @@ func (l *Logger) NewLogger(option LoggerOption, logWriter *LogWriter) *Logger {
 }
 
 func (l *Logger) NewSimpleLogger(option LoggerOption) *Logger {
-	logWriter := NewLogWriter(nil, nil, nil, nil, nil, nil, nil, nil)
+	logWriter := NewLogWriter(
+		nil, nil, nil, nil,
+		nil, nil, nil, nil,
+	)
 	return newLogger(l, option, logWriter)
+}
+
+func (l *Logger) logBoxHandler(box *LogBox, isAsyncThread bool) {
+	box.SetLock()
+
+	if box.IsAsync() && !isAsyncThread {
+		logBoxHandleChannel <- &logBoxEx{
+			logger: l,
+			logBox: box,
+		}
+	} else {
+		switch box.LogLevel() {
+		case TRACE:
+			l.trace(box)
+		case INFO:
+			l.info(box)
+		case WARNING:
+			l.warning(box)
+		case ERROR:
+			l.error(box)
+		}
+	}
 }
 
 func (l *Logger) trace(box *LogBox) {

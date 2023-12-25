@@ -4,74 +4,62 @@ import (
 	"fmt"
 )
 
-func (l *Logger) Traceb(box *LogBox) {
-	l.trace(box)
-}
-
-func (l *Logger) Infob(box *LogBox) {
-	l.info(box)
-}
-
-func (l *Logger) Warningb(box *LogBox) {
-	l.warning(box)
-}
-
-func (l *Logger) Errorb(box *LogBox) {
-	l.error(box)
+func (l *Logger) Direct(box *LogBox) {
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Trace(v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(TRACE)
 	box.message = fmt.Sprint(v...)
 	box.AddCallStack(1)
-	l.trace(box)
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Info(v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(INFO)
 	box.message = fmt.Sprint(v...)
 	box.AddCallStack(1)
-	l.info(box)
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Warning(v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(WARNING)
 	box.message = fmt.Sprint(v...)
 	box.AddCallStack(1)
-	l.warning(box)
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Error(v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(ERROR)
 	box.message = fmt.Sprint(v...)
 	box.AddCallStack(1)
-	l.error(box)
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Tracef(msg string, v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(TRACE)
 	box.message = fmt.Sprintf(msg, v...)
 	box.AddCallStack(1)
-	l.trace(box)
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Infof(msg string, v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(INFO)
 	box.message = fmt.Sprintf(msg, v...)
 	box.AddCallStack(1)
-	l.info(box)
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Warningf(msg string, v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(WARNING)
 	box.message = fmt.Sprintf(msg, v...)
 	box.AddCallStack(1)
-	l.warning(box)
+	l.logBoxHandler(box, true)
 }
 
 func (l *Logger) Errorf(msg string, v ...any) {
-	box := NewLogBox()
+	box := NewLogBox(ERROR)
 	box.message = fmt.Sprintf(msg, v...)
 	box.AddCallStack(1)
-	l.error(box)
+	l.logBoxHandler(box, true)
 }

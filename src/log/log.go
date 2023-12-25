@@ -17,7 +17,7 @@ func init() {
 
 	infoFileWriter := &lumberjack.Logger{
 		Filename:   path.Join(basePath, "log", "syntool.log"),
-		MaxSize:    100, // megabytes
+		MaxSize:    20, // megabytes
 		MaxBackups: 3,
 		MaxAge:     28,   //days
 		Compress:   true, // disabled by default
@@ -25,7 +25,7 @@ func init() {
 
 	errorFileWriter := &lumberjack.Logger{
 		Filename:   path.Join(basePath, "log", "error_syntool.log"),
-		MaxSize:    100, // megabytes
+		MaxSize:    50, // megabytes
 		MaxBackups: 3,
 		MaxAge:     28,   //days
 		Compress:   true, // disabled by default
@@ -76,11 +76,15 @@ func PanicLogHandler(logger *Logger, f func() *util.ErrorW) func() {
 		err := f()
 
 		if err != nil {
-			box := NewLogBox()
-			box.message = fmt.Sprintf("<PanicLogHandler> 처리되지 않은 오류 발생 (Critical=%v, err=%v)", err.Critical(), err.Error())
+			box := NewLogBox(ERROR)
+			box.message = fmt.Sprintf(
+				"<PanicLogHandler> 처리되지 않은 오류 발생 (Critical=%v, err=%v)",
+				err.Critical(),
+				err.Error(),
+			)
 			box.AddCallStackFromError(err, 1)
 
-			logger.Errorb(box)
+			logger.Direct(box)
 
 			if err.Critical() {
 				panic(err)

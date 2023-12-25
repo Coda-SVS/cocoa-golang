@@ -6,6 +6,7 @@ import (
 
 	imgui "github.com/AllenDang/cimgui-go"
 	"github.com/Kor-SVS/cocoa/src/log"
+	"github.com/Kor-SVS/cocoa/src/util"
 )
 
 var (
@@ -25,7 +26,7 @@ func init() {
 func InitImgui(title string, width, height int) {
 	Context = &ImguiWContext{}
 
-	Context.waitGroup = &sync.WaitGroup{}
+	Context.waitGroup = util.GetWaitGroup()
 
 	Context.context = imgui.CreateContext()
 	imgui.SetCurrentContext(Context.context)
@@ -84,7 +85,11 @@ func SetBeforeDestroyContextCallback(f func()) {
 
 func beforeDestroyContext() {
 	if beforeDestroyContextCallback != nil {
-		beforeDestroyContextCallback()
+		Context.waitGroup.Add(1)
+		go func() {
+			beforeDestroyContextCallback()
+			Context.waitGroup.Done()
+		}()
 	}
 
 	if waitTimeout(Context.waitGroup, time.Duration(time.Second*5)) {

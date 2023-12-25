@@ -22,15 +22,16 @@ var (
 func main() {
 	runtime.LockOSThread()
 
-	defer audio.Dispose()
-	defer config.WriteConfig()
-
 	imguiw.InitImgui("COCOA", 1400, 800)
 	imgui.StyleColorsDark()
 	imguiw.SetBeforeDestroyContextCallback(func() {
 		if frameRefresherQuitChan != nil {
 			close(frameRefresherQuitChan)
 		}
+
+		audio.Dispose()
+		config.WriteConfig()
+		log.Dispose()
 	})
 
 	mainWindow = window.NewMainWindow()
