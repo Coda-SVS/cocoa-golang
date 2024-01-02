@@ -43,6 +43,10 @@ type SpectrogramPlot struct {
 	sampleCutIndexOld *util.Index
 
 	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
+
+	// temp state
+	wheelEventBufferIdx int
+	wheelEventBuffer    []bool
 }
 
 // 싱글톤
@@ -60,6 +64,8 @@ func GetSpectrogramPlot() *SpectrogramPlot {
 			ferq_min:            0,
 			ferq_max:            1,
 			maxWidthSize:        512,
+
+			wheelEventBuffer: make([]bool, 3),
 		}
 
 		sp.maxHeightSize = sp.n_bin
@@ -135,56 +141,84 @@ func (sp *SpectrogramPlot) Plot() {
 		return
 	}
 
-	if sp.plotDrawEndEventArgs != nil {
-		if len(sp.freqArray) != 0 {
+	sp.mtx.RLock()
+	plotDrawEndEventArgs := sp.plotDrawEndEventArgs
+	title := sp.title
+	freqArray := sp.freqArray
+	maxHeightSize := sp.maxHeightSize
+	maxWidthSize := sp.maxWidthSize
+	ferq_min := sp.ferq_min
+	ferq_max := sp.ferq_max
+	sampleRate := sp.sampleRate
+	sampleArray := sp.sampleArray
+
+	wheelEventBufferIdx := sp.wheelEventBufferIdx
+	wheelEventBufferIdx++
+	if wheelEventBufferIdx >= len(sp.wheelEventBuffer) {
+		wheelEventBufferIdx = 0
+	}
+	sp.wheelEventBuffer[wheelEventBufferIdx] = imguiw.Context.IO().MouseWheel() != 0
+	isWheelEvent := false
+	for _, c := range sp.wheelEventBuffer {
+		if c {
+			isWheelEvent = true
+			break
+		}
+	}
+	sp.wheelEventBufferIdx = wheelEventBufferIdx
+	sp.mtx.RUnlock()
+
+	if plotDrawEndEventArgs != nil {
+		if len(freqArray) != 0 && !isWheelEvent {
 			imgui.PlotPushColormapPlotColormap(imgui.PlotColormapViridis)
-			imgui.PlotPlotHeatmapdoublePtrV(
-				sp.title,
-				&sp.freqArray,
-				int32(sp.n_bin),
-				int32(sp.maxWidthSize),
-				sp.ferq_min,
-				sp.ferq_max,
+			// t := time.Now()
+			imgui.PlotPlotHeatmapFloatPtrV(
+				title,
+				freqArray,
+				int32(maxHeightSize),
+				int32(maxWidthSize),
+				ferq_min,
+				ferq_max,
 				"",
-				imgui.NewPlotPoint(sp.plotDrawEndEventArgs.PlotPointStart, 0.5),
-				imgui.NewPlotPoint(sp.plotDrawEndEventArgs.PlotPointEnd, -0.5),
+				imgui.NewPlotPoint(plotDrawEndEventArgs.PlotPointStart, float64(sampleRate)/2),
+				imgui.NewPlotPoint(plotDrawEndEventArgs.PlotPointEnd, 0),
 				imgui.PlotHeatmapFlagsNone,
 			)
+			// sp.logger.Tracef("diff_t: %v", time.Since(t))
 			imgui.PlotPopColormap()
 		}
 
-		plotDrawEndEventArgs := *sp.plotDrawEndEventArgs
-		sp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sp.sampleRate)))
-		sp.sampleCutIndex.End = min(len(sp.sampleArray), int(plotDrawEndEventArgs.PlotPointEnd*float64(sp.sampleRate)))
+		sp.mtx.Lock()
+		sp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sampleRate)))
+		sp.sampleCutIndex.End = min(len(sampleArray), int(plotDrawEndEventArgs.PlotPointEnd*float64(sampleRate)))
+		sp.mtx.Unlock()
 	}
 }
 
-// 현재 오디오 스트림에서 데이터 불러오기
+// 현재 오디오 스트림에서 데이터 업데이트
 func (sp *SpectrogramPlot) UpdateData() {
 	if sp.isShouldDataRefresh {
-		// dataContext, cancel := context.WithCancel(context.Background())
-
 		if audio.IsAudioLoaded() {
+			sp.mtx.Lock()
+
 			sp.sampleRate = int(audio.StreamFormat().SampleRate)
 			sp.sampleArray = audio.GetMonoAllSampleData()
-			sp.spectrogram.SetSampleData(sp.sampleArray, sp.sampleRate)
-			sp.spectrogram.Coefficients(context.TODO()) // caching
 
-			sp.n_bin = sp.spectrogram.NumBin()
-
-			freqArraySize := sp.maxWidthSize * sp.spectrogram.NumBin()
+			freqArraySize := sp.maxWidthSize * sp.maxHeightSize
 			if len(sp.freqArray) != freqArraySize {
-				sp.freqArray = make([]float64, freqArraySize)
+				sp.freqArray = make([]float32, freqArraySize)
 			}
 
 			sp.isCleard = false
 			sp.isShouldDataRefresh = false
+
+			sp.mtx.Unlock()
 		} else {
 			sp.clear()
 		}
+	} else {
+		sp.updateViewData()
 	}
-
-	sp.updateViewData()
 }
 
 func (sp *SpectrogramPlot) updateViewData() {
@@ -192,33 +226,63 @@ func (sp *SpectrogramPlot) updateViewData() {
 		return
 	}
 
+	sp.mtx.Lock()
 	sampleCutIndex := *sp.sampleCutIndex
 	sampleCutIndexOld := *sp.sampleCutIndexOld
+	sp.sampleCutIndexOld = &sampleCutIndex
+	sp.mtx.Unlock()
 
 	if !sampleCutIndex.Equal(sampleCutIndexOld) {
-		if len(sp.sampleArray) < sampleCutIndex.End {
-			sampleCutIndex.End = len(sp.sampleArray)
+		sp.sctx.Cancel()
+		sctx := util.NewSimpleContext()
+		sp.sctx = sctx
+
+		if sctx.IsCancelled() {
+			return
+		}
+
+		sp.mtx.RLock()
+		realSampleCount := len(sp.sampleArray)
+		sampleArray := sp.sampleArray
+		sampleRate := sp.sampleRate
+		maxHeightSize := sp.maxHeightSize
+		maxWidthSize := sp.maxWidthSize
+		n_bin := sp.n_bin
+		sp.mtx.RUnlock()
+
+		if realSampleCount < sampleCutIndex.End {
+			sampleCutIndex.End = realSampleCount
 		}
 		if sampleCutIndex.End <= sampleCutIndex.Start {
 			sampleCutIndex.Start = sampleCutIndex.End - 1
 		}
 
-		freqs, width, height := sp.spectrogram.Coefficients(context.TODO())
-		viewSampleSize := min(width, sampleCutIndex.End) - max(0, sampleCutIndex.Start)
-		for x := 0; x < sp.maxWidthSize; x++ {
-			mx := sampleCutIndex.Start + int(util.MapRange(float64(x), 0, float64(sp.maxWidthSize), 0, float64(viewSampleSize)))
-			for y := 0; y < height; y++ {
-				sp.freqArray[y*sp.maxWidthSize+x] = freqs[y*width+mx]
+		sIdx := max(0, sampleCutIndex.Start-n_bin)
+		eIdx := min(realSampleCount, sampleCutIndex.End+n_bin)
+
+		freqArray := dsp.ParallelFFT(
+			sctx.Context(),
+			sampleArray[sIdx:eIdx],
+			sampleRate,
+			maxWidthSize,
+			n_bin,
+			window.BartlettHann,
+			false,
+		)
+
+		if sctx.IsCancelled() {
+			return
+		}
+
+		sp.mtx.Lock()
+
+		for y := 0; y < maxHeightSize; y++ {
+			for x := 0; x < maxWidthSize; x++ {
+				sp.freqArray[y*maxWidthSize+x] = float32(freqArray[y*maxWidthSize+x])
 			}
 		}
 
-		// TEST CODE
-		// freqs, width, height := sp.spectrogram.Coefficients()
-		// sp.freqArray = freqs
-		// sp.maxWidthSize = width
-		// sp.n_bin = height
-
-		sp.sampleCutIndexOld = &sampleCutIndex
+		sp.mtx.Unlock()
 	}
 }
 
@@ -234,6 +298,9 @@ func (sp *SpectrogramPlot) EventHandler(eventArgs any) {
 }
 
 func (sp *SpectrogramPlot) clear() {
+	sp.mtx.Lock()
+	defer sp.mtx.Unlock()
+
 	if sp.isCleard {
 		return
 	}

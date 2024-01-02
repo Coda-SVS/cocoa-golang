@@ -127,27 +127,43 @@ func (wp *WaveformPlot) Plot() {
 		return
 	}
 
-	imgui.PlotPlotLinedoublePtrdoublePtrV(
-		wp.title,
-		&wp.sampleArrayView.X,
-		&wp.sampleArrayView.Y,
-		int32(wp.sampleArrayView.LengthY()),
-		imgui.PlotLineFlagsNone,
-		wp.offset,
-		8,
-	)
+	wp.mtx.RLock()
+	sampleArrayView := *wp.sampleArrayView
+	title := wp.title
+	offset := wp.offset
+	plotDrawEndEventArgs := wp.plotDrawEndEventArgs
+	wp.mtx.RUnlock()
 
-	if wp.plotDrawEndEventArgs != nil {
-		plotDrawEndEventArgs := *wp.plotDrawEndEventArgs
-		wp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(wp.sampleRate)))
-		wp.sampleCutIndex.End = min(wp.sampleArray.LengthY(), int(plotDrawEndEventArgs.PlotPointEnd*float64(wp.sampleRate)))
+	dataLength := sampleArrayView.LengthY()
+
+	if dataLength > 0 {
+		imgui.PlotPlotLinedoublePtrdoublePtrV(
+			title,
+			&sampleArrayView.X,
+			&sampleArrayView.Y,
+			int32(dataLength),
+			imgui.PlotLineFlagsNone,
+			offset,
+			8,
+		)
+	}
+
+	if plotDrawEndEventArgs != nil {
+		wp.mtx.Lock()
+		sampleRate := wp.sampleRate
+		realSampleCount := wp.sampleArray.LengthY()
+		wp.sampleCutIndex.Start = max(0, int(plotDrawEndEventArgs.PlotPointStart*float64(sampleRate)))
+		wp.sampleCutIndex.End = min(realSampleCount, int(plotDrawEndEventArgs.PlotPointEnd*float64(sampleRate)))
+		wp.mtx.Unlock()
 	}
 }
 
-// 현재 오디오 스트림에서 데이터 불러오기
+// 현재 오디오 스트림에서 데이터 업데이트
 func (wp *WaveformPlot) UpdateData() {
 	if wp.isShouldDataRefresh {
 		if audio.IsAudioLoaded() {
+			wp.mtx.Lock()
+
 			format := audio.StreamFormat()
 			sampleArray := audio.GetMonoAllSampleData()
 			wp.sampleRate = int(format.SampleRate)
@@ -165,12 +181,14 @@ func (wp *WaveformPlot) UpdateData() {
 
 			wp.isCleard = false
 			wp.isShouldDataRefresh = false
+
+			wp.mtx.Unlock()
 		} else {
 			wp.clear()
 		}
+	} else {
+		wp.updateViewData()
 	}
-
-	wp.updateViewData()
 }
 
 // Plot에 표시되는 데이터 처리 (화면 밖 데이터 Cut, 다운샘플링)
@@ -179,49 +197,78 @@ func (wp *WaveformPlot) updateViewData() {
 		return
 	}
 
+	wp.mtx.Lock()
 	sampleCutIndex := *wp.sampleCutIndex
 	sampleCutIndexOld := *wp.sampleCutIndexOld
+	wp.sampleCutIndexOld = &sampleCutIndex
+	wp.mtx.Unlock()
 
 	if !sampleCutIndex.Equal(sampleCutIndexOld) {
+		wp.sctx.Cancel()
+		sctx := util.NewSimpleContext()
+		wp.sctx = sctx
+
+		wp.mtx.Lock()
+
+		if sctx.IsCancelled() {
+			wp.mtx.Unlock()
+			return
+		}
+
 		maxSampleCount := wp.maxSampleCount
 		realSampleCount := wp.sampleArray.LengthY()
 		viewSampleCount := sampleCutIndex.Size()
 
-		simpleCut := func() {
-			if len(wp.sampleArray.Y) < sampleCutIndex.End {
-				sampleCutIndex.End = len(wp.sampleArray.Y)
-			}
-			if sampleCutIndex.End <= sampleCutIndex.Start {
-				sampleCutIndex.Start = sampleCutIndex.End - 1
-			}
+		if realSampleCount < sampleCutIndex.End {
+			sampleCutIndex.End = realSampleCount
+		}
+		if sampleCutIndex.End <= sampleCutIndex.Start {
+			sampleCutIndex.Start = sampleCutIndex.End - 1
+		}
 
-			sampleX := wp.sampleArray.X[sampleCutIndex.Start:sampleCutIndex.End]
-			sampleY := wp.sampleArray.Y[sampleCutIndex.Start:sampleCutIndex.End]
-			copy(wp.sampleArrayView.X, sampleX)
-			copy(wp.sampleArrayView.Y, sampleY)
+		sIdx := max(0, sampleCutIndex.Start-wp.sampleRate/3)
+		eIdx := min(realSampleCount, sampleCutIndex.End+wp.sampleRate/3)
+
+		simpleCut := func(sIdx, eIdx int) {
+			sampleX := wp.sampleArray.X[sIdx:eIdx]
+			sampleY := wp.sampleArray.Y[sIdx:eIdx]
+			// copy(wp.sampleArrayView.X, sampleX)
+			// copy(wp.sampleArrayView.Y, sampleY)
+			wp.sampleArrayView.X = sampleX
+			wp.sampleArrayView.Y = sampleY
 		}
 
 		if realSampleCount > maxSampleCount && viewSampleCount > maxSampleCount {
 			// 다운샘플링
-			sampleArrayViewX, sampleArrayViewY, err := dsp.LTTB_Buffer(
-				wp.sampleArray.X[sampleCutIndex.Start:sampleCutIndex.End],
-				wp.sampleArray.Y[sampleCutIndex.Start:sampleCutIndex.End],
-				wp.sampleArrayView.X,
-				wp.sampleArrayView.Y,
+			sampleArrayViewX, sampleArrayViewY, err := dsp.LTTB(
+				sctx.Context(),
+				wp.sampleArray.X[sIdx:eIdx],
+				wp.sampleArray.Y[sIdx:eIdx],
 				maxSampleCount,
 			)
 			if err != nil {
-				logger.Errorf("다운샘플링 오류 (err=%v)", err)
-				simpleCut()
+				wp.logger.Errorf("다운샘플링 오류 (err=%v)", err)
+				simpleCut(sIdx, eIdx)
 			} else {
+				// LOG
+				// wp.logger.Tracef("다운샘플링 적용 (srcLen=(%v,%v), dstLen=(%v,%v), sIdx:eIdx=%v:%v, realSampleCount=%v, viewSampleCount=%v, maxSampleCount=%v)",
+				// 	len(wp.sampleArray.X),
+				// 	len(wp.sampleArray.Y),
+				// 	len(sampleArrayViewX),
+				// 	len(sampleArrayViewY),
+				// 	sIdx, eIdx,
+				// 	realSampleCount,
+				// 	viewSampleCount,
+				// 	maxSampleCount,
+				// )
 				wp.sampleArrayView.X = sampleArrayViewX
 				wp.sampleArrayView.Y = sampleArrayViewY
 			}
 		} else {
-			simpleCut()
+			simpleCut(sIdx, eIdx)
 		}
 
-		wp.sampleCutIndexOld = &sampleCutIndex
+		wp.mtx.Unlock()
 	}
 }
 
