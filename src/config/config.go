@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	RootConfig *Config
 	logger     *log.Logger
+	
+	RootConfig *Config
 )
 
 func init() {
@@ -41,6 +42,10 @@ func ReadConfig() {
 	if err := RootConfig.v.ReadInConfig(); err != nil {
 		logger.Warningf("설정 파일 로드 실패 (err=%v)", err)
 	}
+}
+
+func NewSubConfig(path string) *Config {
+	return RootConfig.GetSub(path)
 }
 
 func WriteConfig() {

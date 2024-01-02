@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	PATH_SEP string = "."
+)
+
 type Config struct {
 	v           *viper.Viper
 	currentPath string
@@ -17,19 +21,48 @@ func NewConfig(v *viper.Viper) *Config {
 	return &Config{v: v}
 }
 
+func (c *Config) AddChangedEventCallback(name string, callback ChangedEventCallback) bool {
+	handler := NewChangedEventHandler(name, c.currentPath, callback)
+	return AddChangedEventHandler(handler)
+}
+
+func (c *Config) DeleteChangedEventCallback(name string) bool {
+	return DeleteChangedEventHandler(name)
+}
+
 func (c *Config) Set(key string, value any) {
+	var path string
+	invokePath := ""
 	if c.currentPath == "" {
-		c.v.Set(key, value)
+		path = key
+
+		if strings.Contains(key, PATH_SEP) {
+			pathSegs := strings.Split(path, PATH_SEP)
+			invokePath = strings.Join(pathSegs[:len(pathSegs)-1], PATH_SEP)
+			key = pathSegs[len(pathSegs)-1]
+		}
 	} else {
-		c.v.Set(strings.Join([]string{c.currentPath, key}, "."), value)
+		path = strings.Join([]string{c.currentPath, key}, PATH_SEP)
+
+		if strings.Contains(key, PATH_SEP) {
+			pathSegs := strings.Split(path, PATH_SEP)
+			invokePath = strings.Join(pathSegs[:len(pathSegs)-1], PATH_SEP)
+			key = pathSegs[len(pathSegs)-1]
+		} else {
+			invokePath = c.currentPath
+		}
 	}
+
+	c.v.Set(path, value)
+
+	invokeChangedEvent(invokePath, key, value)
 }
 
 func (c *Config) SetDefault(key string, value any) {
 	if c.currentPath == "" {
 		c.v.SetDefault(key, value)
 	} else {
-		c.v.SetDefault(strings.Join([]string{c.currentPath, key}, "."), value)
+		c.v.SetDefault(strings.Join([]string{c.currentPath, key}, PATH_SEP), value)
 	}
 }
 
@@ -38,7 +71,7 @@ func (c *Config) GetSub(path string) *Config {
 	if c.currentPath == "" {
 		cfg.currentPath = path
 	} else {
-		cfg.currentPath = strings.Join([]string{c.currentPath, path}, ".")
+		cfg.currentPath = strings.Join([]string{c.currentPath, path}, PATH_SEP)
 	}
 	return cfg
 }
@@ -47,7 +80,7 @@ func (c *Config) Get(key string) any {
 	if c.currentPath == "" {
 		return c.v.Get(key)
 	} else {
-		return c.v.Get(strings.Join([]string{c.currentPath, key}, "."))
+		return c.v.Get(strings.Join([]string{c.currentPath, key}, PATH_SEP))
 	}
 }
 
