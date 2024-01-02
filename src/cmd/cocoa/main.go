@@ -30,6 +30,7 @@ func main() {
 		}
 
 		audio.Dispose()
+		dsp.Dispose()
 		config.WriteConfig()
 		log.Dispose()
 	})

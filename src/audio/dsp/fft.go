@@ -6,12 +6,24 @@ import (
 	"context"
 	"math"
 	"math/cmplx"
-	"runtime"
 	"sync"
 
 	"github.com/Kor-SVS/cocoa/src/util"
-	"github.com/panjf2000/ants/v2"
 )
+
+// FFT N Bin -> Freq
+func NBin2Freq(i, sampleRate, n_bin int) float64 {
+	return float64(i) * (float64(sampleRate) / float64(n_bin) / 2.0)
+}
+
+// Freq -> FFT N Bin
+func Freq2NBin(freq float64, sampleRate, n_bin int) int {
+	return int(freq / (float64(sampleRate) / float64(n_bin) / 2.0))
+}
+
+func Mel(freq float64) float64 {
+	return 2595 * math.Log10(1+freq/700)
+}
 
 func dft(samples []float64, freqs []complex128) {
 	// freqs := make([]complex128, len(samples))
@@ -93,6 +105,7 @@ func FFT(
 func ParallelFFT(
 	ctx context.Context,
 	samples []float64,
+	sampleRate int,
 	freqArrayWidth int,
 	n_bin int,
 	windowFn func([]float64) []float64,
@@ -100,7 +113,19 @@ func ParallelFFT(
 ) (freqArray []float64) {
 	freqArraySize := freqArrayWidth * n_bin
 	freqArray = make([]float64, freqArraySize)
-	wg := &sync.WaitGroup{}
+
+	isCancelled := func() bool {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
+		}
+	}
+
+	if isCancelled() {
+		return nil
+	}
 
 	subSampleArrayPool := &sync.Pool{
 		New: func() interface{} {
@@ -116,26 +141,23 @@ func ParallelFFT(
 		},
 	}
 
-	pool, err := ants.NewPool(runtime.NumCPU())
-	if err != nil {
-		panic(err)
-	}
-	defer pool.Release()
-
+	wg := &sync.WaitGroup{}
 	sampleLength := len(samples)
 
 	for x := 1; x < freqArrayWidth; x++ {
+		if isCancelled() {
+			return nil
+		}
+
 		wg.Add(1)
 
 		xIdx := x
 
-		pool.Submit(func() {
+		goPool.Submit(func() {
 			defer wg.Done()
 
-			select {
-			case <-ctx.Done():
+			if isCancelled() {
 				return
-			default:
 			}
 
 			n0 := int64(util.MapRange(float64(xIdx-1), 0, float64(freqArrayWidth), 0, float64(sampleLength)))
@@ -154,6 +176,11 @@ func ParallelFFT(
 
 			subSampleArray = windowFn(subSampleArray)
 
+			if isCancelled() {
+				subSampleArrayPool.Put(&subSampleArray)
+				return
+			}
+
 			freqs := *freqArrayPool.Get().(*[]complex128)
 			if isDFT {
 				dft(subSampleArray, freqs)
@@ -162,13 +189,20 @@ func ParallelFFT(
 			}
 
 			for y := 0; y < n_bin; y++ {
-				freqArray[y*freqArrayWidth+(xIdx-1)] = cmplx.Abs(freqs[y])
+				srcIdx := y
+				dstIdx := y*freqArrayWidth + (xIdx - 1)
+				freqArray[dstIdx] = cmplx.Abs(freqs[srcIdx])
 			}
 
 			subSampleArrayPool.Put(&subSampleArray)
 			freqArrayPool.Put(&freqs)
 		})
 	}
+
+	if isCancelled() {
+		return nil
+	}
+
 	wg.Wait()
 
 	return freqArray

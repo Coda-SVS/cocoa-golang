@@ -2,13 +2,15 @@ package dsp
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/sasha-s/go-deadlock"
 	"gonum.org/v1/gonum/dsp/window"
 )
 
 type Spectrogram struct {
-	mtx *deadlock.Mutex
+	mtx       *deadlock.Mutex
+	isWorking *atomic.Bool
 
 	windowFn func([]float64) []float64
 
@@ -91,10 +93,7 @@ func (st *Spectrogram) burstCache() {
 	st.freqArray = nil
 }
 
-func (st *Spectrogram) Coefficients(ctx context.Context) ([]float64, int, int) {
-	st.mtx.Lock()
-	defer st.mtx.Unlock()
-
+func (st *Spectrogram) Coefficients(ctx context.Context, freqArrayWidth int) ([]float64, int, int) {
 	if st.sampleArray == nil {
 		return nil, 0, 0
 	}
@@ -103,12 +102,17 @@ func (st *Spectrogram) Coefficients(ctx context.Context) ([]float64, int, int) {
 		return st.freqArray, st.freqArrayWidth, st.n_bin
 	}
 
+	st.mtx.Lock()
+	defer st.mtx.Unlock()
+	st.isWorking.Store(true)
+
 	// 조정 가능
-	st.freqArrayWidth = len(st.sampleArray)
+	st.freqArrayWidth = min(freqArrayWidth, len(st.sampleArray))
 
 	st.freqArray = ParallelFFT(
 		ctx,
 		st.sampleArray,
+		st.sampleRate,
 		st.freqArrayWidth,
 		st.n_bin,
 		st.windowFn,
@@ -116,6 +120,20 @@ func (st *Spectrogram) Coefficients(ctx context.Context) ([]float64, int, int) {
 	)
 
 	st.isCached = true
+	st.isWorking.Store(false)
+
+	return st.freqArray, st.freqArrayWidth, st.n_bin
+}
+
+func (st *Spectrogram) Coefficients_NonBlock(ctx context.Context, freqArrayWidth int) ([]float64, int, int) {
+	if st.isWorking.Load() {
+		return nil, 0, 0
+	}
+
+	if !st.isCached {
+		go st.Coefficients(ctx, freqArrayWidth)
+		return nil, 0, 0
+	}
 
 	return st.freqArray, st.freqArrayWidth, st.n_bin
 }

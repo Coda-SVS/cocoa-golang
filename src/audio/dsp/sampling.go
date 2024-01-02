@@ -1,13 +1,14 @@
 package dsp
 
 import (
+	"context"
 	"fmt"
 	"math"
 )
 
 // LTTB down-samples the data to contain only threshold number of points that
 // have the same visual shape as the original data
-func LTTB(x []float64, y []float64, threshold int) ([]float64, []float64, error) {
+func LTTB(ctx context.Context, x []float64, y []float64, threshold int) ([]float64, []float64, error) {
 	if threshold < 3 {
 		threshold = 3
 	}
@@ -20,7 +21,7 @@ func LTTB(x []float64, y []float64, threshold int) ([]float64, []float64, error)
 		return x, y, nil // Nothing to do
 	}
 
-	sampledX, sampledY, err := LTTB_Buffer(x, y, nil, nil, threshold)
+	sampledX, sampledY, err := LTTB_Buffer(ctx, x, y, nil, nil, threshold)
 
 	return sampledX, sampledY, err
 }
@@ -28,7 +29,7 @@ func LTTB(x []float64, y []float64, threshold int) ([]float64, []float64, error)
 // LTTB down-samples the data to contain only threshold number of points that
 // have the same visual shape as the original data
 // (With Output Buffer)
-func LTTB_Buffer(x, y, outx, outy []float64, threshold int) ([]float64, []float64, error) {
+func LTTB_Buffer(ctx context.Context, x, y, outx, outy []float64, threshold int) ([]float64, []float64, error) {
 	if threshold < 3 {
 		threshold = 3
 	}
@@ -39,6 +40,18 @@ func LTTB_Buffer(x, y, outx, outy []float64, threshold int) ([]float64, []float6
 
 	if threshold >= len(y) {
 		return x, y, nil // Nothing to do
+	}
+
+	isCancelled := func() bool {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
+		}
+	}
+	if isCancelled() {
+		return nil, nil, ctx.Err()
 	}
 
 	var sampledX []float64
@@ -67,6 +80,9 @@ func LTTB_Buffer(x, y, outx, outy []float64, threshold int) ([]float64, []float6
 	var a int
 
 	for i := 0; i < threshold-2; i++ {
+		if isCancelled() {
+			return nil, nil, ctx.Err()
+		}
 
 		bucketEnd := int(math.Floor(float64(i+2)*every)) + 1
 
