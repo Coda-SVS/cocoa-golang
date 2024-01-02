@@ -1,7 +1,6 @@
 package widget
 
 import (
-	"context"
 	"sync"
 
 	imgui "github.com/AllenDang/cimgui-go"
@@ -10,6 +9,8 @@ import (
 	"github.com/Kor-SVS/cocoa/src/log"
 	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
 	"github.com/Kor-SVS/cocoa/src/util"
+	"github.com/sasha-s/go-deadlock"
+	"gonum.org/v1/gonum/dsp/window"
 )
 
 var (
@@ -24,22 +25,22 @@ type SpectrogramPlot struct {
 
 	title string
 
+	sctx                *util.SimpleContext
+	mtx                 *deadlock.RWMutex
 	isShouldDataRefresh bool
 	isCleard            bool
 
-	spectrogram  *dsp.Spectrogram
-	freqArray    []float64
-	sampleRate   int // sampling rate
-	n_bin        int // spectrogram bin count
-	ferq_min     float64
-	ferq_max     float64
-	maxWidthSize int
+	freqArray     []float32
+	sampleRate    int // sampling rate
+	n_bin         int // spectrogram bin count
+	ferq_min      float64
+	ferq_max      float64
+	maxHeightSize int
+	maxWidthSize  int
 
 	sampleArray       []float64
 	sampleCutIndex    *util.Index
 	sampleCutIndexOld *util.Index
-
-	dataContext *context.Context
 
 	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
 }
@@ -50,14 +51,18 @@ func GetSpectrogramPlot() *SpectrogramPlot {
 	spectrogramPlotOnce.Do(func() {
 		sp = &SpectrogramPlot{
 			title:               "Spectrogram Data",
+			sctx:                util.NewSimpleContext(),
+			mtx:                 &deadlock.RWMutex{},
 			isShouldDataRefresh: true,
-			spectrogram:         dsp.NewSpectrogram(),
 			sampleCutIndex:      util.NewIndex(0, 0),
 			sampleCutIndexOld:   util.NewIndex(0, 0),
+			n_bin:               512,
 			ferq_min:            0,
 			ferq_max:            1,
-			maxWidthSize:        1024,
+			maxWidthSize:        512,
 		}
+
+		sp.maxHeightSize = sp.n_bin
 
 		logOption := log.NewLoggerOption()
 		logOption.Prefix = "[spectrogram]"
@@ -70,6 +75,59 @@ func GetSpectrogramPlot() *SpectrogramPlot {
 
 	spectrogramPlotInstance = sp
 	return spectrogramPlotInstance
+}
+
+func (sp *SpectrogramPlot) PlotSetup(args imguiw.PlotSetupArgs) {
+	sp.mtx.RLock()
+	sampleRate := sp.sampleRate
+	sp.mtx.RUnlock()
+
+	var axisX1Flags imgui.PlotAxisFlags
+	if args.IsLastSubPlot {
+		axisX1Flags = imgui.PlotAxisFlagsNoLabel
+	} else {
+		axisX1Flags = imgui.PlotAxisFlagsNoLabel | imgui.PlotAxisFlagsNoTickLabels
+	}
+
+	imgui.PlotSetupAxisV(
+		imgui.AxisX1,
+		"PlotX",
+		imgui.PlotAxisFlags(axisX1Flags),
+	)
+	imgui.PlotSetupAxisV(
+		imgui.AxisY1,
+		"PlotY",
+		imgui.PlotAxisFlags(imgui.PlotAxisFlagsNoTickLabels|
+			imgui.PlotAxisFlagsNoGridLines|
+			imgui.PlotAxisFlagsNoLabel|
+			imgui.PlotAxisFlagsOpposite),
+	)
+
+	imgui.PlotSetupAxisScalePlotScale(imgui.AxisY1, imgui.PlotScaleMel)
+
+	imgui.PlotSetupAxisLimitsConstraints(imgui.AxisY1, math.SmallestNonzeroFloat64, float64(sampleRate)/2)
+	imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, args.AxisXLimitMax)
+
+	if args.IsFitRequest {
+		imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, args.AxisXLimitMax, imgui.PlotCondAlways)
+		imgui.PlotSetupAxisLimitsV(imgui.AxisY1, math.SmallestNonzeroFloat64, float64(sampleRate)/2, imgui.PlotCondAlways)
+	}
+
+	// if args.IsFitAudioStreamPos && audio.IsRunning() {
+	// 	halfRange := (sp.plotDrawEndEventArgs.PlotPointEnd - sp.plotDrawEndEventArgs.PlotPointStart) / 2
+	// 	pos := audio.Position().Seconds()
+	// 	minLimit := pos - halfRange
+	// 	maxLimit := pos + halfRange
+
+	// 	imgui.PlotSetupAxisLimitsV(imgui.AxisX1, minLimit, maxLimit, imgui.PlotCondAlways)
+	// } else {
+	// 	imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, args.AxisXLimitMax)
+
+	// 	if args.IsFitRequest {
+	// 		imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, args.AxisXLimitMax, imgui.PlotCondAlways)
+	// 		imgui.PlotSetupAxisLimitsV(imgui.AxisY1, math.SmallestNonzeroFloat64, float64(sampleRate)/2, imgui.PlotCondAlways)
+	// 	}
+	// }
 }
 
 func (sp *SpectrogramPlot) Plot() {

@@ -15,6 +15,7 @@ type Window interface {
 
 type PlotWidget interface {
 	Title() string
+	PlotSetup(args PlotSetupArgs)
 	Plot()
 	UpdateData()
 	EventHandler(eventArgs any)

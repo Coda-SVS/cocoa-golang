@@ -9,37 +9,13 @@ import (
 	"github.com/Kor-SVS/cocoa/src/log"
 	"github.com/Kor-SVS/cocoa/src/ui/imguiw"
 	"github.com/Kor-SVS/cocoa/src/util"
+	"github.com/sasha-s/go-deadlock"
 )
 
 var (
 	waveformPlotOnce     sync.Once
 	waveformPlotInstance *WaveformPlot
 )
-
-type WaveformPlotData struct {
-	X []float64
-	Y []float64
-}
-
-func NewWaveformPlotData(length, capacity int) *WaveformPlotData {
-	return &WaveformPlotData{
-		X: make([]float64, length, capacity),
-		Y: make([]float64, length, capacity),
-	}
-}
-
-func (wd *WaveformPlotData) LengthX() int {
-	return len(wd.X)
-}
-
-func (wd *WaveformPlotData) LengthY() int {
-	return len(wd.Y)
-}
-
-func (wd *WaveformPlotData) Clear() {
-	clear(wd.X)
-	clear(wd.Y)
-}
 
 type WaveformPlot struct {
 	imguiw.PlotWidget
@@ -48,11 +24,13 @@ type WaveformPlot struct {
 
 	title string
 
+	sctx                *util.SimpleContext
+	mtx                 *deadlock.RWMutex
 	isShouldDataRefresh bool
 	isCleard            bool
 
-	sampleArray       *WaveformPlotData
-	sampleArrayView   *WaveformPlotData
+	sampleArray       *util.WaveformPlotData
+	sampleArrayView   *util.WaveformPlotData
 	maxSampleCount    int
 	sampleCutIndex    *util.Index
 	sampleCutIndexOld *util.Index
@@ -69,15 +47,17 @@ func GetWaveformPlot() *WaveformPlot {
 	waveformPlotOnce.Do(func() {
 		wp = &WaveformPlot{
 			title:               "Wavefrom Data",
+			sctx:                util.NewSimpleContext(),
+			mtx:                 &deadlock.RWMutex{},
 			isShouldDataRefresh: true,
 			isCleard:            true,
-			sampleArray:         NewWaveformPlotData(0, 0),
+			sampleArray:         util.NewWaveformPlotData(0, 0),
 			sampleCutIndex:      util.NewIndex(0, 0),
 			sampleCutIndexOld:   util.NewIndex(0, 0),
 			maxSampleCount:      DefaultMaxSampleCount,
 		}
 
-		wp.sampleArrayView = NewWaveformPlotData(0, wp.maxSampleCount)
+		wp.sampleArrayView = util.NewWaveformPlotData(0, wp.maxSampleCount)
 		if audio.IsAudioLoaded() {
 			wp.sampleRate = int(audio.StreamFormat().SampleRate)
 		}
@@ -93,6 +73,53 @@ func GetWaveformPlot() *WaveformPlot {
 
 	waveformPlotInstance = wp
 	return waveformPlotInstance
+}
+
+func (wp *WaveformPlot) PlotSetup(args imguiw.PlotSetupArgs) {
+	var axisX1Flags imgui.PlotAxisFlags
+	if args.IsLastSubPlot {
+		axisX1Flags = imgui.PlotAxisFlagsNoLabel
+	} else {
+		axisX1Flags = imgui.PlotAxisFlagsNoLabel | imgui.PlotAxisFlagsNoTickLabels
+	}
+
+	imgui.PlotSetupAxisV(
+		imgui.AxisX1,
+		"PlotX",
+		imgui.PlotAxisFlags(axisX1Flags),
+	)
+	imgui.PlotSetupAxisV(
+		imgui.AxisY1,
+		"PlotY",
+		imgui.PlotAxisFlags(imgui.PlotAxisFlagsLock|
+			imgui.PlotAxisFlagsNoTickLabels|
+			imgui.PlotAxisFlagsNoGridLines|
+			imgui.PlotAxisFlagsNoLabel|
+			imgui.PlotAxisFlagsOpposite),
+	)
+
+	imgui.PlotSetupAxisLimitsV(imgui.AxisY1, -0.5, 0.5, imgui.PlotCondAlways)
+
+	imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, args.AxisXLimitMax)
+
+	if args.IsFitRequest {
+		imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, args.AxisXLimitMax, imgui.PlotCondAlways)
+	}
+
+	// if args.IsFitAudioStreamPos && audio.IsRunning() {
+	// 	halfRange := (wp.plotDrawEndEventArgs.PlotPointEnd - wp.plotDrawEndEventArgs.PlotPointStart) / 2
+	// 	pos := audio.Position().Seconds()
+	// 	minLimit := pos - halfRange
+	// 	maxLimit := pos + halfRange
+
+	// 	imgui.PlotSetupAxisLimitsV(imgui.AxisX1, minLimit, maxLimit, imgui.PlotCondAlways)
+	// } else {
+	// 	imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, args.AxisXLimitMax)
+
+	// 	if args.IsFitRequest {
+	// 		imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, args.AxisXLimitMax, imgui.PlotCondAlways)
+	// 	}
+	// }
 }
 
 func (wp *WaveformPlot) Plot() {

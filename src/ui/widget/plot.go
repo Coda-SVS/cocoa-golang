@@ -37,8 +37,9 @@ type Plot struct {
 	wg        *sync.WaitGroup
 	mtx       *deadlock.Mutex
 
-	isFitRequest  bool
 	axisXLimitMax float64
+
+	isFitAudioStreamPos bool
 
 	audioStreamPosID           int32
 	audioStreamPos             float64
@@ -48,6 +49,7 @@ type Plot struct {
 	audioStreamPos_IsPaused    bool
 
 	// temp state
+	isFitRequest         bool
 	row_ratios           []float32
 	plotDrawEndEventArgs *util.PlotDrawEndEventArgs
 }
@@ -70,6 +72,8 @@ func NewPlot() *Plot {
 
 	p.eventHandler_AudioStreamChanged()
 	p.axisXLimitMax = DefaultAxisXLimitMax
+
+	p.isFitAudioStreamPos = true
 
 	p.plotDrawEndEventArgs = &util.PlotDrawEndEventArgs{}
 
@@ -99,25 +103,24 @@ func (p *Plot) View() {
 		subPlot := dpn.Value
 		subPlotCount++
 		p.row_ratios = append(p.row_ratios, subPlot.ratio)
-		p.wg.Add(1)
-		go func(pw imguiw.PlotWidget) {
-			defer p.wg.Done()
-			pw.UpdateData()
-		}(subPlot.dataPlot)
+		go subPlot.dataPlot.UpdateData()
 	}
-	p.wg.Wait()
 
 	if imgui.PlotBeginSubplotsV(
 		imguiw.RS("SubPlot##widget"),
 		int32(subPlotCount),
 		1,
 		imgui.Vec2{X: -1, Y: -1},
-		imgui.PlotSubplotFlagsLinkCols|imgui.PlotSubplotFlagsNoLegend|imgui.PlotSubplotFlagsNoTitle|imgui.PlotSubplotFlagsNoMenus,
+		imgui.PlotSubplotFlagsLinkCols|
+			imgui.PlotSubplotFlagsNoLegend|
+			imgui.PlotSubplotFlagsNoTitle|
+			imgui.PlotSubplotFlagsNoMenus,
 		&p.row_ratios,
 		nil,
 	) {
 		var plotDrawEndEventArgs *util.PlotDrawEndEventArgs
-		axisX1Flags := imgui.PlotAxisFlagsNoLabel | imgui.PlotAxisFlagsNoTickLabels
+		isFitRequest := p.isFitRequest
+		isFitAudioStreamPos := p.isFitAudioStreamPos
 
 		col := -1
 		for dpn := firstSubPlotNode; dpn != nil; dpn = dpn.Next {
@@ -129,35 +132,25 @@ func (p *Plot) View() {
 			if imgui.PlotBeginPlotV(
 				imguiw.RS(fmt.Sprintf("Plot##%v", col)),
 				imgui.Vec2{X: -1, Y: -1},
-				imgui.PlotFlagsNoLegend|imgui.PlotFlagsNoTitle|imgui.PlotFlagsNoMenus|imgui.PlotFlagsNoMouseText,
+				imgui.PlotFlagsNoLegend|
+					imgui.PlotFlagsNoTitle|
+					imgui.PlotFlagsNoMouseText|
+					imgui.PlotFlagsNoMenus,
 			) {
-				if col == subPlotCount-1 {
-					axisX1Flags &^= imgui.PlotAxisFlagsNoTickLabels
-				}
+				// Plot Setup
+				isLastSubPlot := col == subPlotCount-1
+				dataPlot.PlotSetup(imguiw.PlotSetupArgs{
+					AxisXLimitMax:       p.axisXLimitMax,
+					IsLastSubPlot:       isLastSubPlot,
+					IsFitRequest:        isFitRequest,
+					IsFitAudioStreamPos: isFitAudioStreamPos,
+				})
+				imgui.PlotSetupFinish()
 
-				imgui.PlotSetupAxisV(
-					imgui.AxisX1,
-					"PlotX",
-					imgui.PlotAxisFlags(axisX1Flags),
-				)
-				imgui.PlotSetupAxisV(
-					imgui.AxisY1,
-					"PlotY",
-					imgui.PlotAxisFlags(imgui.PlotAxisFlagsLock|imgui.PlotAxisFlagsNoTickLabels|imgui.PlotAxisFlagsNoGridLines|imgui.PlotAxisFlagsNoLabel),
-				)
-
-				imgui.PlotSetupAxisLimitsConstraints(imgui.AxisX1, 0, p.axisXLimitMax)
-				imgui.PlotSetupAxisLimitsV(imgui.AxisY1, -0.5, 0.5, imgui.PlotCondAlways)
-
-				if p.isFitRequest {
-					imgui.PlotSetupAxisLimitsV(imgui.AxisX1, 0, p.axisXLimitMax, imgui.PlotCondAlways)
-					p.isFitRequest = false
-				}
-
-				imgui.PlotSetupLock()
-
+				// Draw Plot
 				dataPlot.Plot()
 
+				// Draw Stream Pos Line
 				p.audioStreamPosDragLine()
 
 				if imgui.PlotIsPlotHovered() && imgui.IsMouseDoubleClicked(imgui.MouseButtonLeft) {
@@ -182,6 +175,10 @@ func (p *Plot) View() {
 
 				imgui.PlotEndPlot()
 			}
+		}
+
+		if isFitRequest {
+			p.isFitRequest = false
 		}
 
 		if plotDrawEndEventArgs != nil {
