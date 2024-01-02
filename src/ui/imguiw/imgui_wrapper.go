@@ -93,7 +93,7 @@ func beforeDestroyContext() {
 	}
 
 	if waitTimeout(Context.waitGroup, time.Duration(time.Second*5)) {
-		logger.Error("서브루틴 종료실패")
+		logger.Error("서브루틴 종료실패 (time-out)")
 	}
 
 	imgui.ImNodesDestroyContext()
